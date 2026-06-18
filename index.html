@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>WaterUtilityReportTool</title>
+<script src="xlsx.full.min.js"></script>
+<script src="html2canvas.min.js"></script>
+<script src="jspdf.umd.min.js"></script>
+<script src="jspdf.plugin.autotable.min.js"></script>
+<style>
+:root{
+  --pri:#1a3a5c;--acc:#0077b6;--bg:#edf2f7;--card:#fff;
+  --border:#c8d6e5;--text:#1a2a3a;--sub:#6b8fa8;
+  --row-h:5em;
+  --tbl-fs:.72rem;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans TC','Microsoft JhengHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px}
+
+/* HEADER */
+#topbar{background:var(--pri);color:#fff;padding:10px 16px;display:flex;align-items:center;gap:10px;
+  position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+#topbar h1{font-size:1rem;font-weight:700;letter-spacing:.03em}
+#topbar .sub{font-size:.7rem;opacity:.65;margin-top:1px}
+
+/* UPLOAD */
+#uploadWrap{padding:24px 16px}
+#dropZone{max-width:600px;margin:0 auto;background:var(--card);border:2px dashed var(--acc);
+  border-radius:14px;padding:40px 20px;text-align:center;cursor:pointer;transition:background .2s}
+#dropZone:hover,#dropZone.over{background:#e0f2fe}
+#dropZone .ico{font-size:2.6rem}
+#dropZone h2{font-size:.95rem;color:var(--acc);margin:10px 0 4px;font-weight:700}
+#dropZone p{font-size:.75rem;color:var(--sub)}
+#fileIn{display:none}
+
+/* TOOLBAR */
+#toolbar{display:none;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 14px;
+  background:var(--card);border-bottom:1px solid var(--border);
+  position:sticky;top:44px;z-index:99;box-shadow:0 2px 5px rgba(0,0,0,.07);
+  position:sticky} /* keep sticky, exportMenu uses fixed positioning via JS */
+#toolbar.show{display:flex}
+.btn{padding:6px 13px;border-radius:7px;border:none;font-size:.77rem;font-family:inherit;
+  cursor:pointer;font-weight:700;transition:filter .15s,transform .1s;line-height:1}
+.btn:active{transform:scale(.97)}
+.btn-blue{background:var(--acc);color:#fff}
+.btn-blue:hover{filter:brightness(1.12)}
+.btn-green{background:#16a34a;color:#fff}
+.btn-green:hover{filter:brightness(1.1)}
+.btn-gray{background:#dde6ef;color:var(--text)}
+.btn-gray:hover{filter:brightness(.93)}
+.btn-ghost{background:transparent;color:var(--sub);border:1px solid var(--border)!important}
+.btn-ghost:hover{background:#f0f4f8;color:var(--text)}
+.btn-danger{background:transparent;color:#b91c1c;border:1px solid #fca5a5!important}
+.btn-danger:hover{background:#fff1f2}
+.sep{width:1px;height:22px;background:var(--border);flex-shrink:0}
+#st{margin-left:auto;font-size:.72rem;color:var(--sub);white-space:nowrap}
+
+/* split control */
+#splitRow{display:flex;align-items:center;gap:5px;font-size:.74rem;color:var(--sub)}
+#splitRow label{display:flex;align-items:center;gap:3px;cursor:pointer}
+#rpPage{width:48px;padding:3px 5px;border:1px solid var(--border);border-radius:5px;font-family:inherit;font-size:.74rem}
+
+/* 字級控制 */
+#sizeRow{display:flex;align-items:center;gap:4px;font-size:.74rem;color:var(--sub)}
+.sz-btn{padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:#fff;
+  font-family:inherit;cursor:pointer;font-size:.73rem;color:var(--text);font-weight:600;
+  transition:background .15s,color .15s}
+.sz-btn:hover{background:var(--acc);color:#fff;border-color:var(--acc)}
+.sz-btn.active{background:var(--pri);color:#fff;border-color:var(--pri)}
+
+/* FILTER BAR */
+#filterBar{display:none;padding:8px 14px;background:#f8fafc;border-bottom:2px solid var(--border)}
+#filterBar.show{display:block}
+.fb-section{margin-bottom:6px}
+.fb-label{font-size:.7rem;font-weight:700;color:var(--pri);margin-bottom:4px;display:block}
+.fb-checks{display:flex;flex-wrap:wrap;gap:4px 10px}
+.fb-checks label{display:flex;align-items:center;gap:3px;font-size:.72rem;color:var(--text);cursor:pointer;
+  padding:2px 4px;border-radius:4px;transition:background .12s}
+.fb-checks label:hover{background:#e0f2fe}
+.fb-checks input[type=checkbox]{accent-color:var(--acc);cursor:pointer;width:15px;height:15px;flex-shrink:0}
+.fb-reset{font-size:.68rem;color:var(--acc);cursor:pointer;margin-left:8px;text-decoration:underline;
+  padding:3px 6px;border-radius:4px;display:inline-block}
+.fb-reset:hover{color:var(--pri);background:#e0f2fe}
+
+/* 觸控裝置：加大所有可點擊元素的點擊區域 */
+@media(hover:none) and (pointer:coarse){
+  .btn{padding:10px 16px;font-size:.8rem}
+  .sz-btn{padding:8px 13px}
+  .btn-copy{padding:10px 20px;font-size:.8rem}
+  .pnav-btn{padding:9px 14px;font-size:.76rem;min-width:38px}
+  #pgInput{padding:6px 4px;font-size:.76rem}
+  .fb-checks label{padding:6px 8px;font-size:.76rem}
+  .fb-checks input[type=checkbox]{width:18px;height:18px}
+  .fb-reset{padding:6px 10px;font-size:.74rem}
+  #filterBtn{padding:10px 16px}
+  #rpPage{padding:6px 5px;font-size:.76rem}
+}
+
+/* LEGEND */
+#legend{display:none;flex-wrap:wrap;gap:6px;padding:7px 14px;
+  background:var(--card);border-bottom:1px solid var(--border);font-size:.72rem;align-items:center}
+#legend.show{display:flex}
+.leg-item{display:flex;align-items:center;gap:4px}
+.leg-swatch{width:13px;height:13px;border-radius:3px;border:1px solid #ccc;flex-shrink:0}
+
+/* REPORT BOX */
+#reportWrap{display:none;padding:10px 8px 0}
+#reportWrap.show{display:block}
+#reportBox{background:var(--card);border-radius:10px;box-shadow:0 1px 5px rgba(0,0,0,.09);
+  padding:14px 16px;max-width:100%}
+#reportBox h3{font-size:.8rem;color:var(--pri);font-weight:700;margin-bottom:10px;
+  display:flex;align-items:center;gap:6px}
+.rpt-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.rpt-row label{font-size:.76rem;color:var(--sub);white-space:nowrap}
+#shiftSel{padding:5px 8px;border:1px solid var(--border);border-radius:6px;
+  font-family:inherit;font-size:.76rem;color:var(--text);background:#fff;cursor:pointer;
+  max-width:260px}
+#msgOut{width:100%;min-height:100px;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;
+  font-family:inherit;font-size:.82rem;line-height:1.8;resize:vertical;background:#f8fafc;
+  color:var(--text);cursor:text}
+#msgOut:focus{outline:none;border-color:var(--acc)}
+.copy-row{display:flex;justify-content:flex-end;margin-top:6px}
+#shiftFilterLabel:hover{background:#e0f2fe!important}
+#shiftFilterLabel.active{background:#dbeafe!important;border-color:var(--acc);color:var(--acc)}
+.btn-copy{padding:5px 14px;border-radius:6px;border:none;cursor:pointer;font-family:inherit;
+  font-size:.75rem;font-weight:700;background:#0077b6;color:#fff;transition:filter .15s}
+.btn-copy:hover{filter:brightness(1.1)}
+.copied{background:#16a34a!important}
+
+/* PAGES */
+#pages{padding:10px 8px 60px}
+.page-block{background:var(--card);border-radius:10px;margin-bottom:16px;
+  box-shadow:0 1px 5px rgba(0,0,0,.09);overflow:hidden}
+.page-cap{background:var(--pri);color:#fff;font-size:.66rem;padding:3px 10px;
+  display:flex;justify-content:space-between;letter-spacing:.05em;font-weight:700}
+
+/* TABLE */
+.t-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:var(--tbl-fs);table-layout:fixed}
+thead th{background:var(--pri);color:#fff;padding:5px 3px;text-align:center;
+  vertical-align:middle;line-height:1.2;word-break:break-all;white-space:pre-wrap;
+  border:1px solid rgba(255,255,255,.18);font-size:.68rem;font-weight:700}
+tbody td{padding:2px 3px;vertical-align:top;border:1px solid var(--border);
+  word-break:break-all;line-height:1.3;overflow:hidden}
+.clip{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;      /* 👈 限制最多4改3行 */
+  overflow:hidden;max-height:var(--row-h)}
+td.td-narrow .clip{-webkit-line-clamp:2}
+
+/* column widths */
+col.cA{width:44px} col.cB{width:68px} col.cC{width:70px}
+col.cD{width:56px} col.cE{width:60px} col.cF{width:168px}
+col.cG{width:30px} col.cH{width:34px} col.cI{width:96px}
+col.cJ{width:36px} col.cK{width:62px} col.cL{width:64px}
+
+/* LOADING */
+#overlay{display:none;position:fixed;inset:0;background:rgba(255,255,255,.9);
+  z-index:200;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+#overlay.show{display:flex}
+.spin{width:40px;height:40px;border:4px solid var(--border);border-top-color:var(--acc);
+  border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* 服務類別文字顏色 */
+.svc-repair   { color:#991B1B; font-weight:800; }
+.svc-supply   { color:#1e40af; font-weight:700; }
+.svc-water    { color:#065f46; font-weight:700; }
+.svc-construct{ color:#92400e; font-weight:700; }
+
+/* 匯出圖片進度遮罩 */
+#exportOverlay{
+  display:none;position:fixed;inset:0;background:rgba(255,255,255,.93);
+  z-index:500;align-items:center;justify-content:center;flex-direction:column;gap:14px;
+}
+#exportOverlay.show{display:flex}
+#exportOverlay .exp-title{font-size:1rem;font-weight:800;color:#1a3a5c}
+#exportOverlay .exp-sub{font-size:.78rem;color:#6b8fa8}
+#expProgress{width:220px;height:8px;border-radius:4px;background:#c8d6e5;overflow:hidden}
+#expProgressBar{height:100%;width:0%;background:#0077b6;border-radius:4px;transition:width .15s}
+
+/* 下載確認卡 */
+#dlConfirm{display:none;flex-direction:column;align-items:center;gap:14px;
+  background:#fff;border-radius:14px;box-shadow:0 4px 24px rgba(0,0,0,.13);
+  padding:28px 32px;min-width:240px;text-align:center}
+#dlConfirm.show{display:flex}
+#dlConfirm .dlc-title{font-size:.95rem;font-weight:800;color:#1a3a5c}
+#dlConfirm .dlc-sub{font-size:.76rem;color:#6b8fa8;margin-top:-6px}
+#dlConfirm .dlc-row{display:flex;gap:10px;margin-top:4px}
+.dlc-btn{padding:9px 22px;border-radius:8px;border:none;font-family:inherit;
+  font-size:.82rem;font-weight:700;cursor:pointer;transition:filter .15s}
+.dlc-btn-dl{background:#16a34a;color:#fff}
+.dlc-btn-dl:hover{filter:brightness(1.1)}
+.dlc-btn-cancel{background:#e5e7eb;color:#374151}
+.dlc-btn-cancel:hover{filter:brightness(.95)}
+
+/* 下載按鈕變身 — 不再需要浮動框樣式 */
+
+/* 分頁控制列 */
+#pagerBar {
+  display:none; align-items:center; gap:6px; padding:6px 14px;
+  background:#f0f6ff; border-bottom:2px solid var(--border);
+  position:sticky; top:88px; z-index:98; flex-wrap:wrap;
+}
+#pagerBar.show { display:flex }
+#pagerBar .pg-info { font-size:.75rem; color:var(--pri); font-weight:700; margin-right:4px; }
+.pnav-btn {
+  padding:4px 11px; border-radius:6px; border:1px solid var(--border);
+  background:#fff; font-size:.73rem; font-family:inherit; cursor:pointer;
+  color:var(--text); font-weight:600; transition:background .15s, color .15s;
+  min-width:28px; text-align:center;
+}
+.pnav-btn:hover { background:var(--acc); color:#fff; border-color:var(--acc); }
+.pnav-btn.cur { background:var(--pri); color:#fff; border-color:var(--pri); }
+.pnav-btn:disabled { opacity:.35; cursor:not-allowed; }
+#pagerBar .pg-jump { display:flex; align-items:center; gap:4px; margin-left:auto; font-size:.73rem; color:var(--sub); }
+#pgInput { width:40px; padding:2px 4px; border:1px solid var(--border); border-radius:4px; font-family:inherit; font-size:.73rem; text-align:center; }
+
+/* 篩選按鈕高亮 */
+#filterBtn.active { background:#e0f2fe!important; color:var(--acc)!important; border:1px solid var(--acc); }
+
+/* RESPONSIVE */
+@media(max-width:480px){
+  #topbar h1{font-size:.88rem}
+  col.cF{width:128px} col.cI{width:80px}
+  table{font-size:.67rem}
+  #st{display:none}
+  #shiftSel{max-width:200px;font-size:.7rem}
+}
+/* 安全標語客製化樣式 */
+.security-banner {
+  max-width: 600px;
+  margin: 16px auto 0;
+  padding: 12px 16px;
+  background-color: #f0fdf4; /* 溫和的淺綠色背景 */
+  border: 1px solid #bbf7d0; /* 綠色邊框 */
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.security-title {
+  font-size: .82rem;
+  font-weight: 700;
+  color: #16a34a; /* 綠色標題 */
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.security-desc {
+  font-size: .75rem;
+  color: #3f6212; /* 深綠色文字，確保易讀性 */
+  line-height: 1.5;
+}
+
+.security-desc strong {
+  color: #15803d;
+  font-weight: 700;
+}
+
+/* 觸控裝置適度加大間距 */
+@media(hover:none) and (pointer:coarse){
+  .security-banner {
+    padding: 16px;
+    margin-top: 20px;
+  }
+  .security-desc {
+    font-size: .78rem;
+  }
+}
+</style>
+</head>
+<body>
+
+<div id="overlay"><div class="spin"></div><span style="color:var(--acc);font-weight:700">解析中…</span></div>
+
+<div id="topbar">
+  <div>
+    <h1>💧 水務案件整理工具</h1>
+    <div class="sub">上傳 Excel → 整理 → 截圖</div>
+  </div>
+</div>
+
+<!-- Upload zone -->
+<div id="uploadWrap">
+  <div id="dropZone">
+    <div class="ico">📂</div>
+    <h2>點擊或拖曳 Excel 檔案</h2>
+    <p>支援 .xlsx / .xls 格式</p>
+    <p style="margin-top:8px;font-size:.7rem;color:#aaa">自動偵測第10列附近的欄位標題</p>
+    <input type="file" id="fileIn" accept=".xlsx,.xls">
+  </div>
+
+  <!-- 新增的安全標語區塊 -->
+  <div class="security-banner">
+    <div class="security-title">🔒 系統設計</div>
+    <div class="security-desc">
+      本工具採用<strong>純前端在地化技術</strong>。當您選擇檔案時，資料僅在您的手機瀏覽器內部(前端)進行解析與統計，檔案只會讀入裝置的瀏覽器的記憶體中，<strong>不會傳送至任何外部或後端伺服器</strong>，請安心使用。
+    </div>
+  </div>
+</div>
+
+<!-- Toolbar -->
+<div id="toolbar">
+  <button class="btn btn-blue" onclick="applyAll()">🔀 排序＋篩選＋染色</button>
+  <button class="btn btn-ghost" onclick="resetRaw()">↩ 還原</button>
+  <button class="btn btn-danger" onclick="reUpload()">📂 重新上傳</button>
+  <div class="sep"></div>
+  <button class="btn btn-gray" id="filterBtn" onclick="toggleFilter()">▼ 篩選</button>
+  <div class="sep"></div>
+  <div id="splitRow">
+    <label><input type="checkbox" id="chkSplit" onchange="render()"> 分頁</label>
+    每頁<input type="number" id="rpPage" value="15" min="3" max="500" onchange="render()">列
+  </div>
+  <div class="sep"></div>
+  <div id="sizeRow">
+    字級：
+    <button class="sz-btn" onclick="setSize('sm', this)">小</button>
+    <button class="sz-btn active" onclick="setSize('md', this)">中</button>
+    <button class="sz-btn" onclick="setSize('lg', this)">大</button>
+  </div>
+  <div class="sep"></div>
+  <button class="btn btn-green" id="screenshotBtn" onclick="showExportMenu()">📤 匯出</button>
+
+  <!-- 匯出選單（下拉） -->
+  <div id="exportMenu" style="display:none;position:absolute;top:100%;left:auto;right:0;
+    background:#fff;border:1px solid #c8d6e5;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);
+    padding:4px 0;z-index:200;min-width:180px;margin-top:2px">
+    <div style="padding:5px 14px 3px;font-size:.68rem;color:var(--sub);font-weight:700;letter-spacing:.04em">🖼️ 匯出圖片</div>
+    <div onclick="exportImage('page')" style="padding:8px 16px 8px 22px;font-size:.78rem;cursor:pointer;
+      color:#1a2a3a;font-weight:700" onmouseenter="this.style.background='#e0f2fe'"
+      onmouseleave="this.style.background=''">📄 當前頁（圖片）</div>
+    <div onclick="exportImage('all')" style="padding:8px 16px 8px 22px;font-size:.78rem;cursor:pointer;
+      color:#1a2a3a;font-weight:700" onmouseenter="this.style.background='#e0f2fe'"
+      onmouseleave="this.style.background=''">📋 全部資料（圖片）</div>
+    <div style="margin:3px 10px;border-top:1px solid #e0e8f0"></div>
+    <div onclick="exportPDF()" style="padding:9px 16px;font-size:.78rem;cursor:pointer;
+      color:#1a2a3a;font-weight:700" onmouseenter="this.style.background='#e0f2fe'"
+      onmouseleave="this.style.background=''">📑 匯出全部資料（PDF）</div>
+  </div>
+  <div id="st"></div>
+</div>
+
+<!-- Filter bar -->
+<div id="filterBar">
+  <div class="fb-section">
+    <span class="fb-label">廠所別
+      <span class="fb-reset" id="unitResetBtn" onclick="resetUnitFilter()">全取消</span>
+    </span>
+    <div class="fb-checks" id="unitChecks"></div>
+  </div>
+  <div class="fb-section" style="margin-bottom:0">
+    <span class="fb-label">案件類別
+      <span class="fb-reset" id="svcResetBtn" onclick="resetSvcFilter()">全取消</span>
+    </span>
+    <div class="fb-checks" id="svcChecks">
+      <label><input type="checkbox" value="修漏案件" checked onchange="applyFilter();syncToggleBtn('svcChecks','svcResetBtn')"> 修漏案件</label>
+      <label><input type="checkbox" value="供水量問題" checked onchange="applyFilter();syncToggleBtn('svcChecks','svcResetBtn')"> 供水量問題</label>
+      <label><input type="checkbox" value="水質案件" checked onchange="applyFilter();syncToggleBtn('svcChecks','svcResetBtn')"> 水質案件</label>
+      <label><input type="checkbox" value="施工案件" checked onchange="applyFilter();syncToggleBtn('svcChecks','svcResetBtn')"> 施工案件</label>
+    </div>
+  </div>
+</div>
+
+<!-- 分頁導覽列 -->
+<div id="pagerBar">
+  <div style="width:100%;font-size:.72rem;font-weight:700;color:#dc2626;margin-bottom:3px">
+    ⚠️ 目前為分頁顯示，請記得翻頁截圖！
+  </div>
+  <span class="pg-info" id="pgInfo">第 1 頁 / 共 1 頁</span>
+  <button class="pnav-btn" id="btnPrev" onclick="goPg(curPage-1)">◀ 上一頁</button>
+  <div id="pgBtns" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+  <button class="pnav-btn" id="btnNext" onclick="goPg(curPage+1)">下一頁 ▶</button>
+  <div class="pg-jump">跳至<input type="number" id="pgInput" min="1" value="1">頁<button class="pnav-btn" onclick="goPg(+document.getElementById('pgInput').value-1)">GO</button></div>
+</div>
+
+<!-- 匯出進度遮罩 -->
+<div id="exportOverlay">
+  <!-- 進度條區 -->
+  <div id="expProgressArea" style="display:flex;flex-direction:column;align-items:center;gap:14px">
+    <div class="exp-title" id="expTitle">🖼️ 正在產生圖片…</div>
+    <div id="expProgress"><div id="expProgressBar"></div></div>
+    <div class="exp-sub" id="expSubText">讀取表格資料中</div>
+  </div>
+  <!-- 下載確認卡（產圖後顯示） -->
+  <div id="dlConfirm">
+    <div class="dlc-title">🖼️ 圖片已產生</div>
+    <div class="dlc-sub" id="dlConfirmSub">確認後即下載</div>
+    <div class="dlc-row">
+      <button class="dlc-btn dlc-btn-dl" id="dlConfirmBtn">⬇ 下載圖片</button>
+      <button class="dlc-btn dlc-btn-cancel" onclick="closeDlConfirm()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 下載按鈕變身後的 href 由 JS 注入，不再有浮動框 -->
+
+<!-- Color legend -->
+<div id="legend"></div>
+
+<!-- html2canvas 用的隱藏渲染容器：寬度固定 788px，不受螢幕限制 -->
+<div id="snapWrap" style="
+  position:fixed; left:-9999px; top:0;
+  width:760px; background:#fff;
+  font-family:'Noto Sans TC','Microsoft JhengHei',sans-serif;
+  font-size:12px; line-height:1.3;
+  visibility:hidden; pointer-events:none; z-index:-1;
+"></div>
+
+<!-- Report message box -->
+<div id="reportWrap">
+  <div id="reportBox">
+    <h3>📋 業務課報告文字</h3>
+    <div class="rpt-row">
+      <label>時段：</label>
+      <select id="shiftSel" onchange="onShiftSelChange()"></select>
+      <label id="shiftFilterLabel" style="display:flex;align-items:center;gap:4px;font-size:.76rem;cursor:pointer;white-space:nowrap;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:#f8fafc;transition:background .15s">
+        <input type="checkbox" id="chkShiftFilter"
+               style="accent-color:var(--acc);width:15px;height:15px;cursor:pointer;flex-shrink:0"
+               onchange="onShiftFilterChange()">
+        依時段篩選
+      </label>
+    </div>
+    <div id="shiftFilterHint" style="display:none;font-size:.7rem;color:#0077b6;margin:-4px 0 6px;padding:3px 6px;background:#e0f2fe;border-radius:5px;line-height:1.5"></div>
+    <textarea id="msgOut"></textarea>
+    <div class="copy-row">
+      <button class="btn-copy" id="btnCopy" onclick="copyMsg()">📋 複製</button>
+    </div>
+  </div>
+</div>
+
+<!-- Table pages -->
+<div id="pages">
+  <div style="text-align:center;padding:60px 20px;color:var(--sub)">請上傳 Excel 明細表</div>
+</div>
+
+<script>
+// ══════════════════════════════════════
+// Config
+// ══════════════════════════════════════
+const KEEP_SVCS = new Set(['修漏案件','供水量問題','供水量案件','水質案件','施工案件']);
+const SVC_ORDER = {'修漏案件':1,'供水量問題':2,'供水量案件':2,'水質案件':3,'施工案件':4};
+
+// 固定9個廠所，順序固定
+const FIXED_UNITS = ['基隆所','淡水所','瑞芳所','汐止所','萬金所','文山所','貢雙所','新山廠','一區處'];
+
+// 報告用廠所順序 & 縮寫對應
+const UNIT_ORDER_MAP = {};
+FIXED_UNITS.forEach((u,i)=>UNIT_ORDER_MAP[u]=i);
+
+const PALETTE = [
+  '#EFF6FF','#F0FDF4','#FEFCE8','#FDF4FF',
+  '#F5F3FF','#FFF7ED','#F0F9FF','#ECFDF5',
+  '#FFF1F2','#FFFBEB','#F8FAFC','#F0FDF4',
+  '#FAF5FF','#FAFAFA','#FFFDE7','#F1F8F0'
+];
+
+// 廠所別 → 縮寫
+const UNIT_SHORT = {
+  '基隆服務所':'基隆所','基隆營運所':'基隆所',
+  '淡水營運所':'淡水所',
+  '瑞芳營運所':'瑞芳所',
+  '汐止營運所':'汐止所',
+  '萬里金山營運所':'萬金所','萬里營運所':'萬里所','金山營運所':'金山所',
+  '文山營運所':'文山所',
+  '貢寮雙溪營運所':'貢雙所','貢寮營運所':'貢寮所','雙溪營運所':'雙溪所',
+  '新山給水廠':'新山廠',
+  '新店營運所':'新店所','板橋營運所':'板橋所','三重營運所':'三重所',
+  '中和營運所':'中和所','永和營運所':'永和所','土城營運所':'土城所',
+  '樹林營運所':'樹林所','三峽營運所':'三峽所','鶯歌營運所':'鶯歌所',
+  '新莊營運所':'新莊所','蘆洲營運所':'蘆洲所','泰山營運所':'泰山所',
+  '林口營運所':'林口所','五股營運所':'五股所','三芝石門營運所':'三石所',
+};
+
+function shortUnit(u){
+  if(!u) return '';
+  if(UNIT_SHORT[u]) return UNIT_SHORT[u];
+  const m = u.match(/(.{2,4})(給水廠|營運所|服務所)/);
+  if(m) return m[1] + (m[2].includes('廠') ? '廠' : '所');
+  return u;
+}
+
+// State
+let rawRows=[], dispRows=[], filteredRows=[], unitColors={}, sorted=false, pi_=0;
+let curPage=0, totalChunks=[];
+
+// ══════════════════════════════════════
+// Upload wiring
+// ══════════════════════════════════════
+const dz = document.getElementById('dropZone');
+const fi = document.getElementById('fileIn');
+dz.onclick = ()=>fi.click();
+dz.ondragover = e=>{e.preventDefault();dz.classList.add('over')};
+dz.ondragleave = ()=>dz.classList.remove('over');
+dz.ondrop = e=>{e.preventDefault();dz.classList.remove('over');if(e.dataTransfer.files[0])load(e.dataTransfer.files[0])};
+fi.onchange = ()=>{if(fi.files[0])load(fi.files[0])};
+
+function reUpload(){
+  rawRows=[]; dispRows=[]; filteredRows=[]; unitColors={}; sorted=false; pi_=0;
+  document.getElementById('uploadWrap').style.display='';
+  document.getElementById('toolbar').classList.remove('show');
+  document.getElementById('filterBar').classList.remove('show');
+  document.getElementById('filterBtn').classList.remove('active');
+  document.getElementById('legend').classList.remove('show');
+  document.getElementById('legend').innerHTML='';
+  document.getElementById('reportWrap').classList.remove('show');
+  document.getElementById('pages').innerHTML='<div style="text-align:center;padding:60px 20px;color:var(--sub)">請上傳 Excel 明細表</div>';
+  setSt('');
+  fi.value='';
+}
+
+function load(f){
+  showOv(true);
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      parse(wb);
+    }catch(err){alert('解析失敗：'+err.message);showOv(false);}
+  };
+  r.readAsArrayBuffer(f);
+}
+
+// ══════════════════════════════════════
+// Parse
+// ══════════════════════════════════════
+function parse(wb){
+  let ws=null,hdr=-1;
+  for(const sn of wb.SheetNames){
+    const s=wb.Sheets[sn];
+    const rows=XLSX.utils.sheet_to_json(s,{header:1,raw:false});
+    for(let i=0;i<Math.min(18,rows.length);i++){
+      if(rows[i]&&rows[i].some(c=>typeof c==='string'&&c.includes('受理編號'))){
+        ws=s;hdr=i;break;
+      }
+    }
+    if(ws)break;
+  }
+  if(!ws){alert('找不到「受理編號」欄位，請確認格式。');showOv(false);return;}
+
+  const all=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,cellDates:true});
+  const H=all[hdr];
+
+  const ci=name=>{
+    const hits=[];
+    for(let i=0;i<H.length;i++) if(H[i]&&String(H[i]).includes(name)) hits.push(i);
+    if(hits.length>1) console.warn(`欄位「${name}」有多個符合的標題，已採用第一個：`, hits.map(i=>H[i]));
+    return hits.length?hits[0]:-1;
+  };
+  const iA=ci('受理編號'),iC=ci('申報時間'),iE=ci('服務類別');
+  const iG=ci('細項'),iH=ci('問題描述'),iL=ci('姓名');
+  const iN=ci('聯絡電話'),iP=ci('報修地址');
+  const iS = ci('後送否') !== -1 ? ci('後送否') : ci('後送廠所');
+  const iT=ci('修漏案號');
+
+  // 必要欄位驗證：缺少任一欄位會導致後續資料解析全部靜默失敗（例如全部列被
+  // rec.length<5 排除），因此提早中止並明確告知，而非讓使用者得到空白結果。
+  const REQUIRED_COLS={'受理編號':iA,'申報時間':iC,'服務類別':iE};
+  const missingCols=Object.entries(REQUIRED_COLS).filter(([,idx])=>idx===-1).map(([name])=>name);
+  if(missingCols.length){
+    alert(`找不到必要欄位：${missingCols.join('、')}，請確認 Excel 表頭格式。`);
+    showOv(false);
+    return;
+  }
+
+  rawRows=[];unitColors={};pi_=0;
+
+  for(let i=hdr+1;i<all.length;i++){
+    const r=all[i];
+    if(!r)continue;
+    const rec=sv(r[iA]);
+    if(!rec||rec.length<5)continue;
+    const addr=sv(r[iP]);
+    const descFull=sv(r[iH]);
+    const desc=descFull.length>12?descFull.slice(12):descFull;
+    const unitFull=sv(r[iS]);
+    const unit=shortUnit(unitFull)||unitFull;
+    // 服務類別別名正規化：「供水量案件」與「供水量問題」在 KEEP_SVCS / SVC_ORDER / svcClass
+    // 中皆視為同義詞，但篩選 checkbox 只有「供水量問題」一個選項。若不在此處統一，
+    // 會導致 applyFilter() 永久濾掉「供水量案件」的資料（見 P1 修正說明）。
+    const svcRaw = sv(r[iE]);
+    const svc = svcRaw === '供水量案件' ? '供水量問題' : svcRaw;
+    rawRows.push({
+      unit, unitFull, rec,
+      time:fmtTime(r[iC]),timeVal:timeVal(r[iC]),
+      svc,detail:sv(r[iG]),desc,
+      city:addr.slice(0,3),dist:addr.slice(3,6),addr:addr.slice(6),
+      name:sv(r[iL]),phone:sv(r[iN]),caseNo:sv(r[iT])
+    });
+  }
+
+  for(const r of rawRows){
+    if(r.unit&&!(r.unit in unitColors)){
+      unitColors[r.unit]=PALETTE[pi_++%PALETTE.length];
+    }
+  }
+
+  sorted=false;
+  dispRows=[...rawRows];
+  filteredRows=[...rawRows];
+  document.getElementById('uploadWrap').style.display='none';
+  document.getElementById('toolbar').classList.add('show');
+  document.getElementById('chkSplit').checked=true;
+  document.getElementById('rpPage').value=15;
+  buildUnitCheckboxes();
+  render();
+  setSt(`共 ${rawRows.length} 筆`);
+  showOv(false);
+}
+
+// ══════════════════════════════════════
+// Filter bar
+// ══════════════════════════════════════
+function toggleFilter(){
+  const fb=document.getElementById('filterBar');
+  const btn=document.getElementById('filterBtn');
+  const open=fb.classList.toggle('show');
+  btn.classList.toggle('active', open);
+  btn.textContent = open ? '▲ 篩選' : '▼ 篩選';
+}
+
+function buildUnitCheckboxes(){
+  // 固定顯示 FIXED_UNITS 全部9個，資料中有其他廠所則附後
+  const inData=new Set(rawRows.map(r=>r.unit).filter(Boolean));
+  const extras=[];
+  for(const u of inData){ if(!FIXED_UNITS.includes(u)) extras.push(u); }
+  const ordered=[...FIXED_UNITS, ...extras];
+
+  const wrap=document.getElementById('unitChecks');
+  wrap.innerHTML='';
+  for(const u of ordered){
+    const lbl=document.createElement('label');
+    const cb=document.createElement('input');
+    cb.type='checkbox'; cb.value=u; cb.checked=true;
+    cb.onchange=()=>{applyFilter();syncToggleBtn('unitChecks','unitResetBtn');};
+    lbl.appendChild(cb);
+    lbl.appendChild(document.createTextNode(' '+u));
+    wrap.appendChild(lbl);
+  }
+  // 初始全選，所以顯示「全取消」
+  document.getElementById('unitResetBtn').textContent='全取消';
+}
+
+function resetUnitFilter(){
+  const cbs=[...document.querySelectorAll('#unitChecks input')];
+  const allChecked=cbs.every(cb=>cb.checked);
+  cbs.forEach(cb=>cb.checked=!allChecked);
+  document.getElementById('unitResetBtn').textContent=allChecked?'全選':'全取消';
+  applyFilter();
+}
+
+function resetSvcFilter(){
+  const cbs=[...document.querySelectorAll('#svcChecks input')];
+  const allChecked=cbs.every(cb=>cb.checked);
+  cbs.forEach(cb=>cb.checked=!allChecked);
+  document.getElementById('svcResetBtn').textContent=allChecked?'全選':'全取消';
+  applyFilter();
+}
+
+function syncToggleBtn(groupId, btnId){
+  const cbs=[...document.querySelectorAll(`#${groupId} input`)];
+  const allChecked=cbs.every(cb=>cb.checked);
+  document.getElementById(btnId).textContent=allChecked?'全取消':'全選';
+}
+
+function getCheckedUnits(){
+  return new Set([...document.querySelectorAll('#unitChecks input:checked')].map(cb=>cb.value));
+}
+
+function getCheckedSvcs(){
+  return new Set([...document.querySelectorAll('#svcChecks input:checked')].map(cb=>cb.value));
+}
+
+function applyFilter(){
+  const units=getCheckedUnits();
+  const svcs=getCheckedSvcs();
+  // 篩選基底：若已排序則從 dispRows（已排序已篩選服務類別）過來，否則從 rawRows
+  const base = sorted ? dispRows : rawRows;
+  filteredRows=base.filter(r=>
+    (!r.unit || units.has(r.unit)) &&
+    (!r.svc  || svcs.has(r.svc))
+  );
+  renderFiltered();
+  setSt(`顯示 ${filteredRows.length} / ${rawRows.length} 筆`);
+}
+
+// ══════════════════════════════════════
+// Font size
+// ══════════════════════════════════════
+function setSize(s, el){
+  const map={sm:'.62rem',md:'.72rem',lg:'.84rem'};
+  document.documentElement.style.setProperty('--tbl-fs', map[s]);
+  document.querySelectorAll('.sz-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ══════════════════════════════════════
+// Helpers
+// ══════════════════════════════════════
+function sv(v){return(v===null||v===undefined)?'':String(v).trim();}
+
+function fmtTime(v){
+  if(!v)return'';
+  if(v instanceof Date){
+    const mo=v.getMonth()+1,d=v.getDate();
+    return `${mo}/${d} ${pad(v.getHours())}:${pad(v.getMinutes())}`;
+  }
+  if(typeof v==='number'){
+    const d=new Date(Math.round((v-25569)*86400000));
+    return `${d.getUTCMonth()+1}/${d.getUTCDate()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+  }
+  const dt=new Date(String(v).replace(/\//g,'-'));
+  if(!isNaN(dt)) return `${dt.getMonth()+1}/${dt.getDate()} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+  return sv(v);
+}
+function pad(n){return String(n).padStart(2,'0');}
+function timeVal(v){
+  const f=fmtTime(v);if(!f)return 0;
+  const m=f.match(/(\d+)\/(\d+)\s+(\d+):(\d+)/);
+  return m?+m[1]*1e6 + +m[2]*1e4 + +m[3]*1e2 + +m[4]:0;
+}
+
+function e(v){
+  if(!v)return'';
+  return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/\n/g,'<br>');
+}
+
+// ══════════════════════════════════════
+// Actions
+// ══════════════════════════════════════
+function applyAll(){
+  // 先做服務類別篩選+排序 → 存入 dispRows
+  dispRows=rawRows.filter(r=>KEEP_SVCS.has(r.svc));
+  dispRows.sort((a,b)=>{
+    // 廠所依 FIXED_UNITS 順序，不在其中的排後面
+    const oa=(UNIT_ORDER_MAP[a.unit]??99), ob=(UNIT_ORDER_MAP[b.unit]??99);
+    if(oa!==ob) return oa-ob;
+    const sv_=(SVC_ORDER[a.svc]||9)-(SVC_ORDER[b.svc]||9); if(sv_)return sv_;
+    return a.timeVal-b.timeVal;
+  });
+  sorted=true;
+  // 重設篩選（全選）
+  document.querySelectorAll('#unitChecks input,#svcChecks input').forEach(cb=>cb.checked=true);
+  filteredRows=[...dispRows];
+  renderFiltered();
+  setSt(`篩選後 ${dispRows.length} / ${rawRows.length} 筆`);
+  renderLegend();
+  buildShiftOptions();
+  buildMsg();
+  document.getElementById('reportWrap').classList.add('show');
+}
+
+function resetRaw(){
+  sorted=false;
+  dispRows=[...rawRows];
+  document.querySelectorAll('#unitChecks input,#svcChecks input').forEach(cb=>cb.checked=true);
+  filteredRows=[...rawRows];
+  // 重設時段篩選勾選
+  const chk=document.getElementById('chkShiftFilter');
+  if(chk){ chk.checked=false; }
+  document.getElementById('shiftFilterLabel')?.classList.remove('active');
+  document.getElementById('shiftFilterHint').style.display='none';
+  renderFiltered();
+  setSt(`共 ${rawRows.length} 筆`);
+  document.getElementById('legend').classList.remove('show');
+  document.getElementById('legend').innerHTML='';
+  document.getElementById('reportWrap').classList.remove('show');
+}
+
+// ══════════════════════════════════════
+// 時段篩選輔助函數
+// ══════════════════════════════════════
+
+/**
+ * 解析 shiftSel 的 value 字串，回傳時段區間物件。
+ * 支援兩種格式：
+ *   跨日：「5/30(17:00)－5/31(08:00)」
+ *   同日：「5/31(08:00－12:00)」
+ */
+function parseShiftRange(val){
+  if(!val) return null;
+  // 跨日型：mo/d(HH:MM)－mo/d(HH:MM)
+  const cross=val.match(/(\d+)\/(\d+)\((\d+):(\d+)\)[－\-]+(\d+)\/(\d+)\((\d+):(\d+)\)/);
+  if(cross){
+    return {sMo:+cross[1],sD:+cross[2],sH:+cross[3],sMin:+cross[4],
+            eMo:+cross[5],eD:+cross[6],eH:+cross[7],eMin:+cross[8]};
+  }
+  // 同日型：mo/d(HH:MM－HH:MM)
+  const same=val.match(/(\d+)\/(\d+)\((\d+):(\d+)[－\-]+(\d+):(\d+)\)/);
+  if(same){
+    return {sMo:+same[1],sD:+same[2],sH:+same[3],sMin:+same[4],
+            eMo:+same[1],eD:+same[2],eH:+same[5],eMin:+same[6]};
+  }
+  return null;
+}
+
+/**
+ * 判斷一筆資料的 time 字串是否落在 range 區間內（含頭含尾）。
+ * time 格式為 fmtTime() 輸出：「5/31 08:23」
+ */
+function timeInShift(timeStr, range){
+  if(!timeStr||!range) return false;
+  // 支援 fmtTime 正常輸出 (M/D HH:MM) 與 fallback 原始字串 (YYYY/M/D HH:MM:SS AM/PM)
+  let mo,d,h,min;
+  const mShort=timeStr.match(/^(\d+)\/(\d+)\s+(\d+):(\d+)/);
+  if(mShort){
+    mo=+mShort[1];d=+mShort[2];h=+mShort[3];min=+mShort[4];
+  } else {
+    // fallback：原始字串含年份，例如 2026/5/9 03:28:56 AM
+    const mFull=timeStr.match(/\d+\/(\d+)\/(\d+)\s+(\d+):(\d+)/);
+    if(!mFull) return false;
+    mo=+mFull[1];d=+mFull[2];h=+mFull[3];min=+mFull[4];
+    // AM/PM 轉換
+    if(/PM/i.test(timeStr)&&h!==12) h+=12;
+    if(/AM/i.test(timeStr)&&h===12) h=0;
+  }
+
+  // 改用真實 Date 比較取代純數值串接（mo*1e6+d*1e4+...），並正確處理跨年班別
+  // （例如「12/31(17:00)－1/1(08:00)」）。純數值比較在這種情況下會把 1/1 的數值
+  // 判定為遠小於 12/31，導致跨年的資料被誤判為區間外。
+  const REF_YEAR=2000; // 任意基準年份，僅用於相對先後比較，不影響月日時分判斷
+  const isWrap = (range.eMo < range.sMo) ||
+                 (range.eMo === range.sMo && range.eD < range.sD);
+
+  const sTs = new Date(REF_YEAR,               range.sMo-1, range.sD, range.sH, range.sMin).getTime();
+  const eTs = new Date(REF_YEAR+(isWrap?1:0),  range.eMo-1, range.eD, range.eH, range.eMin).getTime();
+
+  // 資料時間若落在跨年區間「結束端」那一側（即月日早於起始月日），歸入次年再比較
+  const dataAfterWrap = isWrap && (mo < range.sMo || (mo === range.sMo && d < range.sD));
+  const tTs = new Date(REF_YEAR+(dataAfterWrap?1:0), mo-1, d, h, min).getTime();
+
+  return tTs>=sTs && tTs<=eTs;
+}
+
+/**
+ * 若 chkShiftFilter 已勾選，從 rows 中過濾出符合目前時段的資料；
+ * 否則直接回傳原本的 rows（不影響任何狀態）。
+ */
+function getShiftFilteredRows(rows){
+  const chk=document.getElementById('chkShiftFilter');
+  if(!chk||!chk.checked) return rows;
+  const val=document.getElementById('shiftSel').value;
+  const range=parseShiftRange(val);
+  if(!range) return rows;
+  return rows.filter(r=>timeInShift(r.time,range));
+}
+
+/** shiftSel 切換時：更新報告文字，若有勾選也更新表格 */
+function onShiftSelChange(){
+  buildMsg();
+  if(document.getElementById('chkShiftFilter')?.checked){
+    renderFiltered();
+    _updateShiftHint();
+    setSt(`時段篩選：${getShiftFilteredRows(filteredRows).length} / ${filteredRows.length} 筆`);
+  }
+}
+
+/** chkShiftFilter 勾選/取消時 */
+function onShiftFilterChange(){
+  const chk=document.getElementById('chkShiftFilter');
+  const label=document.getElementById('shiftFilterLabel');
+  const hint=document.getElementById('shiftFilterHint');
+  if(chk.checked){
+    label.classList.add('active');
+    renderFiltered();
+    _updateShiftHint();
+    buildMsg();
+    setSt(`時段篩選：${getShiftFilteredRows(filteredRows).length} / ${filteredRows.length} 筆`);
+  } else {
+    label.classList.remove('active');
+    hint.style.display='none';
+    renderFiltered();
+    buildMsg();
+    setSt(`顯示 ${filteredRows.length} / ${rawRows.length} 筆`);
+  }
+}
+
+/** 更新提示文字 */
+function _updateShiftHint(){
+  const hint=document.getElementById('shiftFilterHint');
+  const val=document.getElementById('shiftSel').value;
+  const range=parseShiftRange(val);
+  if(!range){ hint.style.display='none'; return; }
+  const toShow=getShiftFilteredRows(filteredRows);
+  hint.textContent=`⏱ 時段篩選中：${val}，共 ${toShow.length} 筆`;
+  hint.style.display='block';
+}
+
+// ══════════════════════════════════════
+// Shift options & Report message
+// ══════════════════════════════════════
+
+function buildShiftOptions(){
+  const sel=document.getElementById('shiftSel');
+  sel.innerHTML='';
+  const now=new Date();
+  const mo=now.getMonth()+1, d=now.getDate();
+  const prev=new Date(now); prev.setDate(d-1);
+  const pmo=prev.getMonth()+1, pd=prev.getDate();
+
+  const opts=[
+    {label:`第一日-上午班：${pmo}/${pd}(17:00)－${mo}/${d}(08:00)`,
+     text:`${pmo}/${pd}(17:00)－${mo}/${d}(08:00)`},
+    {label:`第一日-下午班：${mo}/${d}(08:00－12:00)`,
+     text:`${mo}/${d}(08:00－12:00)`},
+    {label:`第二日後-上午班：${pmo}/${pd}(12:00)－${mo}/${d}(08:00)`,
+     text:`${pmo}/${pd}(12:00)－${mo}/${d}(08:00)`},
+    {label:`第二日後-下午班：${mo}/${d}(08:00－12:00)`,
+     text:`${mo}/${d}(08:00－12:00)`},
+  ];
+  opts.forEach(o=>{
+    const op=document.createElement('option');
+    op.value=o.text; op.textContent=o.label;
+    sel.appendChild(op);
+  });
+}
+
+function buildMsg(){
+  const shift=document.getElementById('shiftSel').value||'';
+
+  // 以 filteredRows 為基礎（若尚未排序則用 dispRows），再套時段篩選
+  const base = sorted ? filteredRows : dispRows;
+  const baseRows = getShiftFilteredRows(base);
+
+  // 按廠所統計（只計 FIXED_UNITS 中的，其他忽略或也計）
+  // 廠所順序依 FIXED_UNITS
+  const unitSvcMap = {}; // unit -> {修漏:n, 供水量:n, 水質:n, 施工:n}
+
+  for(const r of baseRows){
+    const u = r.unit;
+    if(!u) continue;
+    if(!unitSvcMap[u]) unitSvcMap[u]={修漏:0,供水量:0,水質:0,施工:0};
+    if(r.svc==='修漏案件') unitSvcMap[u].修漏++;
+    else if(r.svc==='供水量案件'||r.svc==='供水量問題') unitSvcMap[u].供水量++;
+    else if(r.svc==='水質案件') unitSvcMap[u].水質++;
+    else if(r.svc==='施工案件') unitSvcMap[u].施工++;
+  }
+
+  // 廠所排序：先 FIXED_UNITS 順序，再其他
+  const orderedUnits=[];
+  for(const u of FIXED_UNITS){ if(unitSvcMap[u]) orderedUnits.push(u); }
+  for(const u of Object.keys(unitSvcMap)){ if(!FIXED_UNITS.includes(u)) orderedUnits.push(u); }
+
+  // 建立各廠所行
+  const lines=[];
+  for(const u of orderedUnits){
+    const c=unitSvcMap[u];
+    const parts=[];
+    if(c.修漏>0)  parts.push(`修漏${c.修漏}件`);
+    if(c.供水量>0) parts.push(`供水量${c.供水量}件`);
+    if(c.水質>0)  parts.push(`水質${c.水質}件`);
+    if(c.施工>0)  parts.push(`施工${c.施工}件`);
+    if(parts.length) lines.push(`🔹${u}: ${parts.join('、')}`);
+  }
+
+  const msg=`業務課報告：\n檢送【${shift}】客服後送案:\n${lines.join('\n')}\n請協助處理及回覆，謝謝您！`;
+  document.getElementById('msgOut').value=msg;
+  const btn=document.getElementById('btnCopy');
+  btn.textContent='📋 複製';
+  btn.classList.remove('copied');
+}
+
+function copyMsg(){
+  const ta=document.getElementById('msgOut');
+  ta.select();
+  ta.setSelectionRange(0,99999);
+  try{
+    navigator.clipboard.writeText(ta.value).then(()=>flashCopy()).catch(()=>legacyCopy());
+  }catch{legacyCopy();}
+}
+function legacyCopy(){document.execCommand('copy');flashCopy();}
+function flashCopy(){
+  const btn=document.getElementById('btnCopy');
+  btn.textContent='✅ 已複製！';
+  btn.classList.add('copied');
+  setTimeout(()=>{btn.textContent='📋 複製';btn.classList.remove('copied');},2000);
+}
+
+// ══════════════════════════════════════
+// Render
+// ══════════════════════════════════════
+function render(){
+  // 注意：先前版本在此處會用 filteredRows=[...dispRows] 覆蓋目前的篩選結果，
+  // 導致使用者切換「分頁」勾選框或「每頁列數」時，已套用的廠所／服務類別篩選
+  // 會被靜默重置。render() 只負責「依目前 filteredRows 重新繪製」，
+  // filteredRows 的內容一律交由 applyAll()/resetRaw()/applyFilter() 維護。
+  renderFiltered();
+}
+
+function renderFiltered(){
+  const pg=document.getElementById('pages');
+  // 統一在此套用「依時段篩選」（若已勾選），確保畫面顯示與所有匯出
+  // （PDF／單頁圖片／全部資料圖片）共用同一份 totalChunks 來源，
+  // 不再用「暫時覆寫 filteredRows 再還原」的方式各自為政。
+  const rows = getShiftFilteredRows(filteredRows);
+  if(!rows.length){
+    pg.innerHTML='<div style="text-align:center;padding:40px;color:#888">無資料</div>';
+    document.getElementById('pagerBar').classList.remove('show');
+    totalChunks=[];
+    return;
+  }
+
+  const split=document.getElementById('chkSplit').checked;
+  const rpp=Math.max(3,parseInt(document.getElementById('rpPage').value)||15);
+
+  if(split){
+    totalChunks=[];
+    for(let i=0;i<rows.length;i+=rpp) totalChunks.push(rows.slice(i,i+rpp));
+  } else {
+    totalChunks=[rows];
+  }
+
+  if(curPage>=totalChunks.length) curPage=0;
+  renderPage(curPage);
+}
+
+function renderPage(idx){
+  curPage=idx;
+  const pg=document.getElementById('pages');
+  const split=document.getElementById('chkSplit').checked;
+  const total=totalChunks.length;
+  const chunk=totalChunks[idx];
+
+  pg.innerHTML='';
+  const blk=document.createElement('div');
+  blk.className='page-block';
+
+  if(split && total>1){
+    // 統計目前頁的案件類別數量
+    const rCnt = chunk.filter(r=>r.svc==='修漏案件').length;
+    const sCnt = chunk.filter(r=>r.svc==='供水量問題'||r.svc==='供水量案件').length;
+    const wCnt = chunk.filter(r=>r.svc==='水質案件').length;
+    const cCnt = chunk.filter(r=>r.svc==='施工案件').length;
+    const units=[...new Set(chunk.map(r=>r.unit).filter(Boolean))].join('・');
+    const pills = [
+      rCnt ? `<span style="font-size:.62rem;padding:1px 6px;border-radius:20px;background:rgba(220,38,38,.35);color:#fca5a5;font-weight:600">修漏 ${rCnt}</span>` : '',
+      sCnt ? `<span style="font-size:.62rem;padding:1px 6px;border-radius:20px;background:rgba(37,99,235,.35);color:#93c5fd;font-weight:600">供水 ${sCnt}</span>` : '',
+      wCnt ? `<span style="font-size:.62rem;padding:1px 6px;border-radius:20px;background:rgba(5,150,105,.35);color:#6ee7b7;font-weight:600">水質 ${wCnt}</span>` : '',
+      cCnt ? `<span style="font-size:.62rem;padding:1px 6px;border-radius:20px;background:rgba(146,64,14,.35);color:#fcd34d;font-weight:600">施工 ${cCnt}</span>` : '',
+    ].filter(Boolean).join(' ');
+    blk.innerHTML=`<div class="page-cap">
+      <span>第 ${idx+1} 頁 / 共 ${total} 頁<span style="opacity:.6;font-weight:400;margin-left:8px;font-size:.62rem">${units}</span></span>
+      <span style="display:flex;align-items:center;gap:5px">${pills}<span style="opacity:.55;font-weight:400;font-size:.62rem">${chunk.length} 列</span></span>
+    </div>`;
+  }
+  const wrap=document.createElement('div');
+  wrap.className='t-wrap';
+  wrap.innerHTML=buildTable(chunk);
+  blk.appendChild(wrap);
+  pg.appendChild(blk);
+
+  const pagerBar=document.getElementById('pagerBar');
+  if(split && total>1){
+    pagerBar.classList.add('show');
+    document.getElementById('pgInfo').textContent=`第 ${idx+1} 頁 / 共 ${total} 頁`;
+    document.getElementById('btnPrev').disabled=(idx===0);
+    document.getElementById('btnNext').disabled=(idx===total-1);
+    document.getElementById('pgInput').value=idx+1;
+    document.getElementById('pgInput').max=total;
+
+    const btnsDiv=document.getElementById('pgBtns');
+    btnsDiv.innerHTML='';
+    const showPgs=pageRange(idx,total);
+    let last=-1;
+    showPgs.forEach(p=>{
+      if(last>=0 && p>last+1){
+        const sp=document.createElement('span');
+        sp.textContent='…'; sp.style.cssText='font-size:.72rem;color:var(--sub);padding:0 2px;';
+        btnsDiv.appendChild(sp);
+      }
+      const b=document.createElement('button');
+      b.className='pnav-btn'+(p===idx?' cur':'');
+      b.textContent=p+1;
+      b.onclick=()=>goPg(p);
+      btnsDiv.appendChild(b);
+      last=p;
+    });
+  } else {
+    pagerBar.classList.remove('show');
+  }
+
+  window.scrollTo({top:0,behavior:'instant'});
+}
+
+function pageRange(cur,total){
+  const set=new Set([0,total-1]);
+  for(let i=Math.max(0,cur-1);i<=Math.min(total-1,cur+1);i++) set.add(i);
+  return [...set].sort((a,b)=>a-b);
+}
+
+function goPg(idx){
+  if(idx<0||idx>=totalChunks.length) return;
+  renderPage(idx);
+}
+
+// ══════════════════════════════════════
+// html2canvas 匯出引擎
+// （直接截取 HTML 表格，排版與畫面完全一致）
+// ══════════════════════════════════════
+
+function setProgress(pct, txt){
+  document.getElementById('expProgressBar').style.width = pct+'%';
+  if(txt) document.getElementById('expSubText').textContent = txt;
+}
+function tick(){ return new Promise(r=>setTimeout(r,16)); }
+
+/* ── 下載確認卡 ── */
+function showDlConfirm(dataUrl, filename){
+  // 隱藏進度條，顯示確認卡
+  document.getElementById('expProgressArea').style.display = 'none';
+  document.getElementById('dlConfirmSub').textContent = filename;
+  const card = document.getElementById('dlConfirm');
+  card.classList.add('show');
+  // 綁定下載按鈕
+  const btn = document.getElementById('dlConfirmBtn');
+  btn.onclick = () => {
+    const a = document.createElement('a');
+    a.href = dataUrl; a.download = filename; a.click();
+    closeDlConfirm();
+  };
+}
+function closeDlConfirm(){
+  document.getElementById('exportOverlay').classList.remove('show');
+  document.getElementById('dlConfirm').classList.remove('show');
+  document.getElementById('expProgressArea').style.display = 'flex';
+  setProgress(0,'');
+  document.getElementById('expTitle').textContent = '🖼️ 正在產生圖片…';
+}
+
+function showExportMenu(){
+  const menu = document.getElementById('exportMenu');
+  const btn  = document.getElementById('screenshotBtn');
+  if(menu.style.display === 'none'){
+    const r = btn.getBoundingClientRect();
+    menu.style.display = 'block';
+    menu.style.position = 'fixed';
+    menu.style.top  = (r.bottom + 4) + 'px';
+    menu.style.left = Math.max(4, r.left) + 'px';
+    menu.style.right = 'auto';
+    setTimeout(()=>document.addEventListener('click', closeExportMenu, {once:true}), 10);
+  } else {
+    menu.style.display = 'none';
+  }
+}
+function closeExportMenu(){ document.getElementById('exportMenu').style.display='none'; }
+
+// 字型快取（只 fetch 一次）
+let _fontRegular = null, _fontBold = null;
+
+async function loadFonts(){
+  if(_fontRegular && _fontBold) return;
+  // 用頁面所在目錄當基準，子目錄部署（如 GitHub Pages）也能正確找到字型
+  const base = window.location.href.replace(/\/[^/]*$/, '/');
+  const toBase64 = async (filename) => {
+    const url = base + filename;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error(`字型載入失敗：${url}（${res.status}）`);
+    const buf = await res.arrayBuffer();
+    // 用 FileReader 處理大型二進位，避免 btoa 字串長度限制
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(new Blob([buf]));
+    });
+  };
+  [_fontRegular, _fontBold] = await Promise.all([
+    toBase64('NotoSansTC-Regular.ttf'),
+    toBase64('NotoSansTC-Bold.ttf'),
+  ]);
+}
+
+async function exportPDF(){
+  document.getElementById('exportMenu').style.display='none';
+  if(!filteredRows.length){ alert('目前沒有資料，請先上傳並整理後再匯出。'); return; }
+  if(!totalChunks.length){ alert('請先確認分頁設定。'); return; }
+
+  const ov = document.getElementById('exportOverlay');
+  document.getElementById('expTitle').textContent = '📑 正在產生 PDF…';
+  ov.classList.add('show');
+  setProgress(5, '載入字型中…');
+  await tick();
+
+  try {
+    await loadFonts();
+  } catch(err) {
+    ov.classList.remove('show');
+    setProgress(0,'');
+    document.getElementById('expTitle').textContent = '🖼️ 正在產生圖片…';
+    alert('字型載入失敗，請確認 NotoSansTC-Regular.ttf / NotoSansTC-Bold.ttf 與 HTML 放在同一目錄。\n' + err.message);
+    return;
+  }
+
+  const snap = document.getElementById('snapWrap');
+  const now = new Date();
+  const dateStr = `${now.getMonth()+1}/${now.getDate()}`;
+  const total = totalChunks.length;
+
+  const { jsPDF } = window.jspdf;
+
+  function split4txt(v){
+    if(!v) return '';
+    const s = String(v).trim();
+    if(!/^[A-Za-z0-9]+$/.test(s) || s.length <= 4) return s;
+    return s.slice(0,-4) + '\n' + s.slice(-4);
+  }
+
+  function svcColor(svc){
+    if(svc==='修漏案件')        return [153,27,27];
+    if(svc.includes('供水'))    return [30,64,175];
+    if(svc.includes('水質'))    return [6,95,70];
+    if(svc.includes('施工'))    return [146,64,14];
+    return [26,42,58];
+  }
+
+  function hexToRgb(hex){
+    const h = hex.replace('#','');
+    return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+  }
+
+  try {
+    // A4 直式
+    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+
+    // 注入中文字型
+    doc.addFileToVFS('NotoSansTC-Regular.ttf', _fontRegular);
+    doc.addFont('NotoSansTC-Regular.ttf', 'NotoSansTC', 'normal');
+    doc.addFileToVFS('NotoSansTC-Bold.ttf', _fontBold);
+    doc.addFont('NotoSansTC-Bold.ttf', 'NotoSansTC', 'bold');
+    doc.setFont('NotoSansTC');
+
+    const HDRS = ['廠所別','受理編號','申報時間','服務類別','細項',
+                  '用戶問題描述','縣市','區域','報修地址','姓名','電話','修漏\n案號'];
+    // A4 直式可用寬約 198mm（margin 各 6mm）
+    const colWidths = [11,16,14,15,14,42,8,8,28,9,14,14];
+
+    for(let ci = 0; ci < total; ci++){
+      const chunk = totalChunks[ci];
+      const pct = Math.round(15 + (ci / total) * 75);
+      setProgress(pct, `產生第 ${ci+1} / ${total} 頁…`);
+      await tick();
+
+      if(ci > 0) doc.addPage();
+
+      // 頁面標題列
+      const A4_W = doc.internal.pageSize.width;
+      doc.setFillColor(26,58,92);
+      doc.rect(6, 6, A4_W-12, 7, 'F');
+      doc.setFont('NotoSansTC','bold');
+      doc.setFontSize(8);
+      doc.setTextColor(255,255,255);
+      doc.text(`第 ${ci+1} 頁 / 共 ${total} 頁`, 9, 11.5);
+      doc.setFont('NotoSansTC','normal');
+      doc.setFontSize(7);
+      doc.setTextColor(200,220,255);
+      doc.text(`${chunk.length} 列　${dateStr}`, A4_W-9, 11.5, {align:'right'});
+
+      const body = chunk.map(r => [
+        r.unit,
+        split4txt(r.rec),
+        r.time,
+        r.svc,
+        r.detail,
+        r.desc,
+        r.city,
+        r.dist,
+        r.addr,
+        r.name,
+        split4txt(r.phone),
+        split4txt(r.caseNo),
+      ]);
+
+      doc.autoTable({
+        head: [HDRS],
+        body,
+        startY: 15,
+        margin: { left:6, right:6 },
+        styles: {
+          font: 'NotoSansTC',
+          fontStyle: 'normal',
+          fontSize: 7,
+          cellPadding: 1.5,
+          valign: 'top',
+          overflow: 'linebreak',
+          lineColor: [200,214,229],
+          lineWidth: 0.2,
+          textColor: [26,42,58],
+        },
+        headStyles: {
+          fillColor: [26,58,92],
+          textColor: [255,255,255],
+          fontSize: 7,
+          font: 'NotoSansTC',
+          fontStyle: 'bold',
+          halign: 'center',
+          cellPadding: 2,
+        },
+        columnStyles: {
+          0:  { cellWidth:colWidths[0],  halign:'center' },
+          1:  { cellWidth:colWidths[1],  halign:'center' },
+          2:  { cellWidth:colWidths[2],  halign:'center' },
+          3:  { cellWidth:colWidths[3],  halign:'center' },
+          4:  { cellWidth:colWidths[4] },
+          5:  { cellWidth:colWidths[5] },
+          6:  { cellWidth:colWidths[6],  halign:'center' },
+          7:  { cellWidth:colWidths[7],  halign:'center' },
+          8:  { cellWidth:colWidths[8] },
+          9:  { cellWidth:colWidths[9],  halign:'center' },
+          10: { cellWidth:colWidths[10], halign:'center' },
+          11: { cellWidth:colWidths[11], halign:'center' },
+        },
+        didParseCell(data){
+          if(data.section === 'body'){
+            const r = chunk[data.row.index];
+            if(!r) return;
+            if(sorted && unitColors[r.unit]){
+              data.cell.styles.fillColor = hexToRgb(unitColors[r.unit]);
+            }
+            if(data.column.index === 3){
+              data.cell.styles.textColor = svcColor(r.svc);
+              data.cell.styles.fontStyle = 'bold';
+            }
+          }
+        },
+      });
+    }
+
+    setProgress(95, '產生檔案…');
+    await tick();
+
+    doc.save(`水務案件_PDF_${now.getMonth()+1}${now.getDate()}_${filteredRows.length}筆.pdf`);
+    setProgress(100, '完成！');
+    await tick();
+
+  } catch(err){
+    snap.style.visibility = 'hidden';
+    snap.innerHTML = '';
+    alert('PDF 匯出失敗：' + err.message);
+    console.error(err);
+  } finally {
+    ov.classList.remove('show');
+    setProgress(0,'');
+    document.getElementById('expTitle').textContent = '🖼️ 正在產生圖片…';
+  }
+}
+
+async function exportImage(scope){
+  document.getElementById('exportMenu').style.display='none';
+  if(!filteredRows.length){ alert('目前沒有資料，請先上傳並整理後再匯出。'); return; }
+
+  const targetRows = (scope === 'page')
+    ? (totalChunks[curPage] || getShiftFilteredRows(filteredRows))
+    : getShiftFilteredRows(filteredRows);
+
+  const ov = document.getElementById('exportOverlay');
+  ov.classList.add('show');
+  setProgress(10, '建立表格中…');
+  await tick();
+
+  const pagerBar = document.getElementById('pagerBar');
+  const snap = document.getElementById('snapWrap');
+
+  try {
+    // ── 0. 截圖前隱藏分頁提示列 ──
+    pagerBar.style.visibility = 'hidden';
+
+    // 欄寬與網頁表格完全相同（對應 col.cA ~ col.cL）
+    const COL_WIDTHS = [44,58,68,48,46,188,25,25,116,36,52,54];
+    const HDRS = ['廠所別','受理編號','申報時間','服務類別','細項',
+                  '用戶問題描述','縣市','區域','報修地址','姓名','電話','修漏\n案號'];
+
+    // 後4碼換行：僅對純英數字的標準格式，含中文/空格者原樣顯示（內部已呼叫 e() 逸出）
+    function split4(v){
+      if(!v) return '';
+      const s = String(v).trim();
+      const isStandard = /^[A-Za-z0-9]+$/.test(s);
+      if(!isStandard || s.length <= 4) return e(s);
+      return e(s.slice(0,-4)) + '<br>' + e(s.slice(-4));
+    }
+
+    // 分頁標題
+    const pageTag = scope === 'page'
+      ? `第 ${curPage+1} 頁 / 共 ${totalChunks.length} 頁`
+      : `全部資料`;
+    const now = new Date();
+    const dateStr = `${now.getMonth()+1}/${now.getDate()}`;
+
+    // 用 inline style 確保 html2canvas 能正確套用（不依賴外部 CSS class）
+    const colgroup = COL_WIDTHS.map(w=>`<col style="width:${w}px">`).join('');
+
+    const thead = `<thead><tr style="background:#1a3a5c">${
+      HDRS.map(h=>`<th style="
+        background:#1a3a5c;color:#fff;padding:5px 3px;text-align:center;
+        vertical-align:middle;line-height:1.3;word-break:break-all;white-space:pre-wrap;
+        border:1px solid rgba(255,255,255,.18);font-size:11px;font-weight:700;
+        box-sizing:border-box;
+      ">${h.replace(/\n/g,'<br>')}</th>`).join('')
+    }</tr></thead>`;
+
+    const tbody = targetRows.map((r, ri)=>{
+      const { bg } = getRowMeta(r);
+      const zebra = (!sorted && ri%2===1) ? 'filter:brightness(0.97)' : '';
+      // 所有欄位值在插入 innerHTML 前都先經過 e() 逸出，避免 Excel 來源資料
+      // 中夾帶的 HTML/腳本片段（例如問題描述、地址欄）在截圖容器中被執行。
+      // split4() 內部已自行呼叫 e()，故不重複逸出。
+      const cells = [
+        {v:e(r.unit),               align:'center', narrow:true},
+        {v:split4(r.rec),           align:'center', pre:true},   // 受理編號後4碼換行
+        {v:e(r.time),                align:'center'},
+        {v:e(r.svc),                 align:'center', svc:true},
+        {v:e(r.detail),              align:'left'},
+        {v:e(r.desc),                align:'left',   clamp:4},    // 問題描述加寬，多顯示一行
+        {v:e(r.city),                align:'center'},
+        {v:e(r.dist),                align:'center'},
+        {v:e(r.addr),                align:'left'},
+        {v:e(r.name),                align:'center', narrow:true},
+        {v:split4(r.phone),         align:'center', pre:true},   // 電話後4碼換行
+        {v:split4(r.caseNo),        align:'center', pre:true},   // 修漏案號後4碼換行
+      ].map((c,ci)=>{
+        let color = '#1a2a3a', fontWeight='normal';
+        if(c.svc){
+          if(r.svc==='修漏案件')           { color='#991B1B'; fontWeight='800'; }
+          else if(r.svc.includes('供水'))   { color='#1e40af'; fontWeight='700'; }
+          else if(r.svc.includes('水質'))   { color='#065f46'; fontWeight='700'; }
+          else if(r.svc.includes('施工'))   { color='#92400e'; fontWeight='700'; }
+        }
+        // pre:true 表示已含 <br>，直接插入；否則走原本 clamp/narrow 邏輯
+        const innerStyle = c.pre
+          ? 'line-height:1.3;'
+          : (c.clamp
+              ? `display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:${c.clamp};overflow:hidden;`
+              : (c.narrow ? `display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;` : ''));
+        return `<td style="
+          padding:2px 3px;vertical-align:top;
+          border:1px solid #c8d6e5;word-break:break-all;line-height:1.3;
+          overflow:hidden;text-align:${c.align};
+          color:${color};font-weight:${fontWeight};
+          box-sizing:border-box;font-size:12px;
+        "><div style="${innerStyle}max-height:4em;overflow:hidden;">${c.v}</div></td>`;  // 輸出圖片高度
+      }).join('');
+      return `<tr style="background:${bg};${zebra}">${cells}</tr>`;
+    }).join('');
+
+    // 分頁標題（含廠所、案件統計）— units 來自 Excel 廠所欄位，同樣需要逸出
+    const units = [...new Set(targetRows.map(r=>r.unit).filter(Boolean))].map(u=>e(u)).join('・');
+    const rCnt = targetRows.filter(r=>r.svc==='修漏案件').length;
+    const sCnt = targetRows.filter(r=>r.svc==='供水量問題'||r.svc==='供水量案件').length;
+    const wCnt = targetRows.filter(r=>r.svc==='水質案件').length;
+    const cCnt = targetRows.filter(r=>r.svc==='施工案件').length;
+    const pillsHtml = [
+      rCnt ? `<span style="font-size:9px;padding:1px 6px;border-radius:20px;background:rgba(220,38,38,.35);color:#fca5a5;font-weight:700">修漏 ${rCnt}</span>` : '',
+      sCnt ? `<span style="font-size:9px;padding:1px 6px;border-radius:20px;background:rgba(37,99,235,.35);color:#93c5fd;font-weight:700">供水 ${sCnt}</span>` : '',
+      wCnt ? `<span style="font-size:9px;padding:1px 6px;border-radius:20px;background:rgba(5,150,105,.35);color:#6ee7b7;font-weight:700">水質 ${wCnt}</span>` : '',
+      cCnt ? `<span style="font-size:9px;padding:1px 6px;border-radius:20px;background:rgba(146,64,14,.35);color:#fcd34d;font-weight:700">施工 ${cCnt}</span>` : '',
+    ].filter(Boolean).join(' ');
+
+    const caption = `<div style="
+      background:#1a3a5c;color:#fff;font-size:10px;padding:3px 8px;
+      display:flex;justify-content:space-between;align-items:center;font-weight:700;
+    ">
+      <span>${pageTag}<span style="opacity:.6;font-weight:400;margin-left:8px;font-size:9px">${units}</span></span>
+      <span style="display:flex;align-items:center;gap:5px">${pillsHtml}<span style="opacity:.55;font-weight:400;font-size:9px">${targetRows.length} 列 ｜ ${dateStr}</span></span>
+    </div>`;
+
+    snap.innerHTML = caption + `<table style="
+      border-collapse:collapse;table-layout:fixed;width:760px;
+      font-size:11px;font-family:'Noto Sans TC','Microsoft JhengHei',sans-serif;
+    "><colgroup>${colgroup}</colgroup>${thead}<tbody>${tbody}</tbody></table>`;
+
+    snap.style.visibility = 'visible';
+
+    setProgress(40, '渲染表格中…');
+    await tick();
+    await tick(); // 讓瀏覽器完成 layout
+
+    // ── 2. html2canvas 截圖 ──
+    setProgress(60, '截圖中…');
+    await tick();
+
+    const canvas = await html2canvas(snap, {
+      scale: 2,              // 2x 高解析度
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      width:  snap.scrollWidth,
+      height: snap.scrollHeight,
+      windowWidth: 800,
+    });
+
+    setProgress(90, '產生圖片…');
+    await tick();
+
+    const dataUrl = canvas.toDataURL('image/jpeg');
+
+    const fScope = scope === 'page' ? `_第${curPage+1}頁` : '_全部';
+    const filename = `水務案件${fScope}_${now.getMonth()+1}${now.getDate()}_${targetRows.length}筆.jpeg`;
+
+    setProgress(100, '完成！');
+    await tick();
+
+    // 進度條原地變成確認卡
+    showDlConfirm(dataUrl, filename);
+
+  } catch(err){
+    closeDlConfirm();
+    alert('匯出失敗：' + err.message);
+    console.error(err);
+  } finally {
+    // 不論成功或失敗都一定執行：避免任一步驟拋例外時，pagerBar 永遠隱藏
+    // 或 snapWrap 殘留內容（原版的清理程式碼分散在成功路徑與 catch 兩處，
+    // 任一處提早出錯都可能導致另一處清理被跳過）。
+    snap.style.visibility = 'hidden';
+    snap.innerHTML = '';
+    pagerBar.style.visibility = '';
+  }
+}
+
+// 單一來源：判斷一列資料的顯示屬性（背景色、服務類別樣式），
+// 供 buildTable()（網頁表格）與 exportImage()（截圖匯出）共用，
+// 避免同一條「排序後依廠所染色」規則散落在兩個函式中各維護一份。
+function getRowMeta(r){
+  return {
+    bg: sorted ? (unitColors[r.unit] || '#fff') : '#fff',
+    svcCls: svcClass(r.svc),
+  };
+}
+
+function svcClass(svc){
+  if(svc==='修漏案件') return 'svc-repair';
+  if(svc==='供水量案件'||svc==='供水量問題') return 'svc-supply';
+  if(svc==='水質案件') return 'svc-water';
+  if(svc==='施工案件') return 'svc-construct';
+  return '';
+}
+
+function split4web(v, type){
+  if(!v) return '';
+  const s = String(v).trim();
+  // 僅對「純數字」或「英數字母+數字（無中文）」的標準格式做後4碼換行
+  // 有中文、空格等非標準內容 → 直接原樣顯示
+  const isStandard = /^[A-Za-z0-9]+$/.test(s);
+  if(!isStandard || s.length <= 4) return e(s);
+  return e(s.slice(0,-4)) + '<br>' + e(s.slice(-4));
+}
+
+function buildTable(rows){
+  const COLS=['cA','cB','cC','cD','cE','cF','cG','cH','cI','cJ','cK','cL'];
+  const HDRS=['廠所別','受理編號','申報時間','服務類別','細項','用戶問題描述','縣市','區域','報修地址','姓名','電話','修漏\n案號'];
+  let h=`<table><colgroup>${COLS.map(c=>`<col class="${c}">`).join('')}</colgroup>`;
+  h+=`<thead><tr>${HDRS.map(t=>`<th>${e(t)}</th>`).join('')}</tr></thead><tbody>`;
+  for(const r of rows){
+    const {bg, svcCls:sc} = getRowMeta(r);
+    h+=`<tr style="background:${bg}">
+      <td class="td-narrow"><div class="clip">${e(r.unit)}</div></td>
+      <td><div class="clip">${split4web(r.rec)}</div></td>
+      <td><div class="clip">${e(r.time)}</div></td>
+      <td><div class="clip ${sc}">${e(r.svc)}</div></td>
+      <td><div class="clip">${e(r.detail)}</div></td>
+      <td class="td-desc"><div class="clip">${e(r.desc)}</div></td>
+      <td><div class="clip">${e(r.city)}</div></td>
+      <td><div class="clip">${e(r.dist)}</div></td>
+      <td><div class="clip">${e(r.addr)}</div></td>
+      <td class="td-narrow"><div class="clip">${e(r.name)}</div></td>
+      <td><div class="clip">${split4web(r.phone)}</div></td>
+      <td><div class="clip">${split4web(r.caseNo)}</div></td>
+    </tr>`;
+  }
+  return h+'</tbody></table>';
+}
+
+function renderLegend(){
+  const lg=document.getElementById('legend');
+  const units=[...new Set(dispRows.map(r=>r.unit).filter(Boolean))];
+  if(!units.length){lg.classList.remove('show');return;}
+  lg.innerHTML='<span style="font-size:.72rem;color:var(--sub);margin-right:4px">廠所色：</span>'+
+    units.map(u=>`<span class="leg-item"><span class="leg-swatch" style="background:${unitColors[u]||'#fff'}"></span>${e(u)}</span>`).join('');
+  lg.classList.add('show');
+}
+
+function setSt(m){document.getElementById('st').textContent=m;}
+function showOv(s){document.getElementById('overlay').classList.toggle('show',s);}
+</script>
+</body>
+</html>
