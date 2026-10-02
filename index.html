@@ -1329,7 +1329,7 @@ async function exportPDF(){
     setProgress(95, '產生檔案…');
     await tick();
 
-    doc.save(`水務案件_PDF_${now.getMonth()+1}${now.getDate()}_${filteredRows.length}筆.pdf`);
+    doc.save(`案件明細_PDF_${now.getMonth()+1}${now.getDate()}_${filteredRows.length}筆.pdf`);
     setProgress(100, '完成！');
     await tick();
 
