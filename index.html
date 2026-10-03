@@ -1109,6 +1109,8 @@ function tick(){ return new Promise(r=>setTimeout(r,16)); }
 function showDlConfirm(dataUrl, filename){
   // 隱藏進度條，顯示確認卡
   document.getElementById('expProgressArea').style.display = 'none';
+  document.querySelector('#dlConfirm .dlc-title').textContent = '🖼️ 圖片已產生';
+  document.getElementById('dlConfirmBtn').textContent = '⬇ 下載圖片';
   document.getElementById('dlConfirmSub').textContent = filename;
   const card = document.getElementById('dlConfirm');
   card.classList.add('show');
@@ -1169,6 +1171,36 @@ async function loadFonts(){
     toBase64('NotoSansTC-Regular.ttf'),
     toBase64('NotoSansTC-Bold.ttf'),
   ]);
+}
+
+/* ── PDF 確認卡：只分享「檔案」（不帶 text/url/title），避免 LINE 出現 blob 連結 ── */
+function showPdfConfirm(blob, filename){
+  document.getElementById('expProgressArea').style.display = 'none';
+  document.querySelector('#dlConfirm .dlc-title').textContent = '📑 PDF 已產生';
+  document.getElementById('dlConfirmSub').textContent = filename;
+  document.getElementById('dlConfirm').classList.add('show');
+
+  const btn = document.getElementById('dlConfirmBtn');
+  btn.textContent = '📤 分享 / 儲存';
+  btn.onclick = async () => {
+    const file = new File([blob], filename, { type: 'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file] });   // 只放 files
+        closeDlConfirm();
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;   // 使用者取消，留在確認卡
+        console.warn('分享失敗，改用下載：', err);
+      }
+    }
+    // 備援：直接下載
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    closeDlConfirm();
+  };
 }
 
 async function exportPDF(){
@@ -1329,19 +1361,22 @@ async function exportPDF(){
     setProgress(95, '產生檔案…');
     await tick();
 
-    doc.save(`案件明細_PDF_${now.getMonth()+1}${now.getDate()}_${filteredRows.length}筆.pdf`);
+    // 不再呼叫 doc.save()：它在 iOS 會以 blob: 網址下載，檔案帶著來源網址，
+    // 傳到 LINE 時會多出一則 blob 連結。改為產生 Blob，由使用者按鈕後分享。
+    const pdfName = `案件明細_PDF_${now.getMonth()+1}${now.getDate()}_${filteredRows.length}筆.pdf`;
+    const pdfBlob = doc.output('blob');
     setProgress(100, '完成！');
     await tick();
+    showPdfConfirm(pdfBlob, pdfName);   // 確認卡留在畫面上，等使用者按「分享 / 儲存」
 
   } catch(err){
     snap.style.visibility = 'hidden';
     snap.innerHTML = '';
-    alert('PDF 匯出失敗：' + err.message);
-    console.error(err);
-  } finally {
     ov.classList.remove('show');
     setProgress(0,'');
     document.getElementById('expTitle').textContent = '🖼️ 正在產生圖片…';
+    alert('PDF 匯出失敗：' + err.message);
+    console.error(err);
   }
 }
 
