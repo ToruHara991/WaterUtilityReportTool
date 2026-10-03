@@ -388,6 +388,7 @@ col.cJ{width:36px} col.cK{width:62px} col.cL{width:64px}
     <div class="dlc-sub" id="dlConfirmSub">確認後即下載</div>
     <div class="dlc-row">
       <button class="dlc-btn dlc-btn-dl" id="dlConfirmBtn">⬇ 下載圖片</button>
+      <button class="dlc-btn dlc-btn-dl" id="dlConfirmBtn2" style="display:none;background:#0077b6">⬇ 下載 PDF</button>
       <button class="dlc-btn dlc-btn-cancel" onclick="closeDlConfirm()">取消</button>
     </div>
   </div>
@@ -1111,6 +1112,8 @@ function showDlConfirm(dataUrl, filename){
   document.getElementById('expProgressArea').style.display = 'none';
   document.querySelector('#dlConfirm .dlc-title').textContent = '🖼️ 圖片已產生';
   document.getElementById('dlConfirmBtn').textContent = '⬇ 下載圖片';
+  document.getElementById('dlConfirmBtn').style.display = '';
+  document.getElementById('dlConfirmBtn2').style.display = 'none';
   document.getElementById('dlConfirmSub').textContent = filename;
   const card = document.getElementById('dlConfirm');
   card.classList.add('show');
@@ -1125,6 +1128,7 @@ function showDlConfirm(dataUrl, filename){
 function closeDlConfirm(){
   document.getElementById('exportOverlay').classList.remove('show');
   document.getElementById('dlConfirm').classList.remove('show');
+  document.getElementById('dlConfirmBtn2').style.display = 'none';
   document.getElementById('expProgressArea').style.display = 'flex';
   setProgress(0,'');
   document.getElementById('expTitle').textContent = '🖼️ 正在產生圖片…';
@@ -1173,33 +1177,47 @@ async function loadFonts(){
   ]);
 }
 
-/* ── PDF 確認卡：只分享「檔案」（不帶 text/url/title），避免 LINE 出現 blob 連結 ── */
+/* ── PDF 確認卡：兩個按鈕 ──
+   📤 分享：只分享「檔案」（不帶 text/url/title），避免 LINE 出現 blob 連結
+   ⬇ 下載：以 octet-stream 觸發下載，避免 Safari 開 blob 預覽頁 */
 function showPdfConfirm(blob, filename){
   document.getElementById('expProgressArea').style.display = 'none';
   document.querySelector('#dlConfirm .dlc-title').textContent = '📑 PDF 已產生';
   document.getElementById('dlConfirmSub').textContent = filename;
   document.getElementById('dlConfirm').classList.add('show');
 
-  const btn = document.getElementById('dlConfirmBtn');
-  btn.textContent = '📤 分享 / 儲存';
-  btn.onclick = async () => {
-    const file = new File([blob], filename, { type: 'application/pdf' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file] });   // 只放 files
-        closeDlConfirm();
-        return;
-      } catch (err) {
-        if (err && err.name === 'AbortError') return;   // 使用者取消，留在確認卡
-        console.warn('分享失敗，改用下載：', err);
-      }
+  const file = new File([blob], filename, { type: 'application/pdf' });
+  const canShareFile = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+
+  const shareBtn = document.getElementById('dlConfirmBtn');
+  const dlBtn    = document.getElementById('dlConfirmBtn2');
+
+  // 分享按鈕：僅在瀏覽器支援檔案分享時顯示
+  shareBtn.textContent = '📤 分享';
+  shareBtn.style.display = canShareFile ? '' : 'none';
+  shareBtn.onclick = async () => {
+    try {
+      await navigator.share({ files: [file] });   // 只放 files
+      closeDlConfirm();
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;   // 使用者取消，留在確認卡
+      alert('分享失敗，請改按「下載 PDF」。\n' + (err && err.message || ''));
     }
-    // 備援：直接下載
-    const url = URL.createObjectURL(blob);
+  };
+
+  // 下載按鈕：永遠顯示
+  dlBtn.style.display = '';
+  dlBtn.onclick = () => {
+    // 用 octet-stream 而非 application/pdf，Safari 才不會把 blob 當 PDF 開成預覽頁
+    const dlBlob = new Blob([blob], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(dlBlob);
     const a = document.createElement('a');
-    a.href = url; a.download = filename; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
-    closeDlConfirm();
+    a.href = url; a.download = filename; a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    // 不自動關閉確認卡：下載後仍可再按「分享」
   };
 }
 
