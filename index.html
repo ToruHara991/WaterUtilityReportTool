@@ -218,6 +218,10 @@ col.cJ{width:36px} col.cK{width:62px} col.cL{width:64px}
 /* 篩選按鈕高亮 */
 #filterBtn.active { background:#e0f2fe!important; color:var(--acc)!important; border:1px solid var(--acc); }
 
+/* 災害模式按鈕:開啟時整顆變紅,明顯提示目前處於特殊模式 */
+#disasterBtn.active { background:#dc2626!important; color:#fff!important; }
+#disasterBtn.active:hover { filter:brightness(1.08); }
+
 /* RESPONSIVE */
 @media(max-width:480px){
   #topbar h1{font-size:.88rem}
@@ -305,6 +309,8 @@ col.cJ{width:36px} col.cK{width:62px} col.cL{width:64px}
   <button class="btn btn-blue" onclick="applyAll()">🔀 排序＋篩選＋染色</button>
   <button class="btn btn-ghost" onclick="resetRaw()">↩ 還原</button>
   <button class="btn btn-danger" onclick="reUpload()">📂 重新上傳</button>
+  <div class="sep"></div>
+  <button class="btn btn-gray" id="disasterBtn" onclick="toggleDisaster()">🚨 災害模式：關</button>
   <div class="sep"></div>
   <button class="btn btn-gray" id="filterBtn" onclick="toggleFilter()">▼ 篩選</button>
   <div class="sep"></div>
@@ -485,6 +491,17 @@ function shortUnit(u){
 let rawRows=[], dispRows=[], filteredRows=[], unitColors={}, sorted=false, pi_=0;
 let curPage=0, totalChunks=[];
 
+// ── 災害模式 ──
+// disasterMode 為 true 時:排序改為 廠所→行政區→服務類別→時間,
+// 染色依據由「廠所」改為「行政區(dist)」,PDF 匯出時每個廠所從新頁開始。
+// 既有(平常)模式的所有行為完全不受影響。
+let disasterMode=false;
+let distColors={};        // 行政區(dist) → 底色,災害模式專用
+let distPi_=0;            // distColors 配色指標
+// 行政區的顯示鍵:目前依使用者設定採用 dist(地址第4~6字)。
+// 若日後要改成 city+dist 或獨立欄位,只需改這一個函式即可。
+function distKey(r){ return r.dist || '（未分類）'; }
+
 // ══════════════════════════════════════
 // Upload wiring
 // ══════════════════════════════════════
@@ -498,6 +515,7 @@ fi.onchange = ()=>{if(fi.files[0])load(fi.files[0])};
 
 function reUpload(){
   rawRows=[]; dispRows=[]; filteredRows=[]; unitColors={}; sorted=false; pi_=0;
+  distColors={}; distPi_=0;
   document.getElementById('uploadWrap').style.display='';
   document.getElementById('toolbar').classList.remove('show');
   document.getElementById('filterBar').classList.remove('show');
@@ -620,6 +638,16 @@ function toggleFilter(){
   btn.textContent = open ? '▲ 篩選' : '▼ 篩選';
 }
 
+function toggleDisaster(){
+  disasterMode=!disasterMode;
+  const btn=document.getElementById('disasterBtn');
+  btn.classList.toggle('active', disasterMode);
+  btn.textContent = disasterMode ? '🚨 災害模式：開' : '🚨 災害模式：關';
+  // 若使用者已按過「排序＋篩選＋染色」,立即用新模式重算一次,
+  // 讓畫面的排序、染色與圖例即時反映模式切換;尚未整理則不動作。
+  if(sorted) applyAll();
+}
+
 function buildUnitCheckboxes(){
   // 固定顯示 FIXED_UNITS 全部9個，資料中有其他廠所則附後
   const inData=new Set(rawRows.map(r=>r.unit).filter(Boolean));
@@ -733,13 +761,32 @@ function e(v){
 function applyAll(){
   // 先做服務類別篩選+排序 → 存入 dispRows
   dispRows=rawRows.filter(r=>KEEP_SVCS.has(r.svc));
-  dispRows.sort((a,b)=>{
-    // 廠所依 FIXED_UNITS 順序，不在其中的排後面
-    const oa=(UNIT_ORDER_MAP[a.unit]??99), ob=(UNIT_ORDER_MAP[b.unit]??99);
-    if(oa!==ob) return oa-ob;
-    const sv_=(SVC_ORDER[a.svc]||9)-(SVC_ORDER[b.svc]||9); if(sv_)return sv_;
-    return a.timeVal-b.timeVal;
-  });
+  if(disasterMode){
+    // 災害模式:廠所 → 行政區 → 服務類別 → 時間
+    dispRows.sort((a,b)=>{
+      const oa=(UNIT_ORDER_MAP[a.unit]??99), ob=(UNIT_ORDER_MAP[b.unit]??99);
+      if(oa!==ob) return oa-ob;
+      const da=distKey(a), db=distKey(b);
+      if(da!==db) return da.localeCompare(db,'zh-Hant');
+      const sv_=(SVC_ORDER[a.svc]||9)-(SVC_ORDER[b.svc]||9); if(sv_)return sv_;
+      return a.timeVal-b.timeVal;
+    });
+    // 依「出現順序」指派行政區底色,排序後同區相鄰、顏色成塊
+    distColors={}; distPi_=0;
+    for(const r of dispRows){
+      const k=distKey(r);
+      if(!(k in distColors)) distColors[k]=PALETTE[distPi_++%PALETTE.length];
+    }
+  } else {
+    // 平常模式(原行為不變):廠所 → 服務類別 → 時間
+    dispRows.sort((a,b)=>{
+      // 廠所依 FIXED_UNITS 順序，不在其中的排後面
+      const oa=(UNIT_ORDER_MAP[a.unit]??99), ob=(UNIT_ORDER_MAP[b.unit]??99);
+      if(oa!==ob) return oa-ob;
+      const sv_=(SVC_ORDER[a.svc]||9)-(SVC_ORDER[b.svc]||9); if(sv_)return sv_;
+      return a.timeVal-b.timeVal;
+    });
+  }
   sorted=true;
   // 重設篩選（全選）
   document.querySelectorAll('#unitChecks input,#svcChecks input').forEach(cb=>cb.checked=true);
@@ -1267,6 +1314,119 @@ async function exportPDF(){
                   '用戶問題描述','縣市','區域','報修地址','姓名','電話','修漏\n案號'];
     // A4 直式可用寬約 198mm（margin 各 6mm）
     const colWidths = [11,16,14,15,14,42,8,8,28,9,14,14];
+    const A4_W = doc.internal.pageSize.width;
+
+    // 共用的 autoTable 設定工廠:styles / headStyles / columnStyles(含特調欄寬)
+    // 兩種模式完全一致,只有 body、染色規則、startY、頂部留白與頁首重繪不同。
+    function makeTableOpts(rows, fillFor){
+      return {
+        head: [HDRS],
+        body: rows.map(r => [
+          r.unit, split4txt(r.rec), r.time, r.svc, r.detail, r.desc,
+          r.city, r.dist, r.addr, r.name, split4txt(r.phone), split4txt(r.caseNo),
+        ]),
+        styles: {
+          font: 'NotoSansTC', fontStyle: 'normal', fontSize: 7, cellPadding: 1.5,
+          valign: 'top', overflow: 'linebreak',
+          lineColor: [200,214,229], lineWidth: 0.2, textColor: [26,42,58],
+        },
+        headStyles: {
+          fillColor: [26,58,92], textColor: [255,255,255], fontSize: 7,
+          font: 'NotoSansTC', fontStyle: 'bold', halign: 'center', cellPadding: 2,
+        },
+        columnStyles: {
+          0:  { cellWidth:colWidths[0],  halign:'center' },
+          1:  { cellWidth:colWidths[1],  halign:'center' },
+          2:  { cellWidth:colWidths[2],  halign:'center' },
+          3:  { cellWidth:colWidths[3],  halign:'center' },
+          4:  { cellWidth:colWidths[4] },
+          5:  { cellWidth:colWidths[5] },
+          6:  { cellWidth:colWidths[6],  halign:'center' },
+          7:  { cellWidth:colWidths[7],  halign:'center' },
+          8:  { cellWidth:colWidths[8] },
+          9:  { cellWidth:colWidths[9],  halign:'center' },
+          10: { cellWidth:colWidths[10], halign:'center' },
+          11: { cellWidth:colWidths[11], halign:'center' },
+        },
+        didParseCell(data){
+          if(data.section === 'body'){
+            const r = rows[data.row.index];
+            if(!r) return;
+            // fillFor:傳回該列底色 hex(或 null)。平常模式=廠所,災害模式=行政區。
+            const hex = fillFor ? fillFor(r) : null;
+            if(hex) data.cell.styles.fillColor = hexToRgb(hex);
+            if(data.column.index === 3){
+              data.cell.styles.textColor = svcColor(r.svc);
+              data.cell.styles.fontStyle = 'bold';
+            }
+          }
+        },
+      };
+    }
+
+    // ══════════ 災害模式:每廠所一組、各自從新頁開始、行政區染色 ══════════
+    if(disasterMode){
+      const allRows = getShiftFilteredRows(filteredRows);
+      // 依 FIXED_UNITS 順序分組,其餘廠所排後面
+      const groups = new Map();           // unit -> rows[]
+      for(const r of allRows){
+        const u = r.unit || '（未分類）';
+        if(!groups.has(u)) groups.set(u, []);
+        groups.get(u).push(r);
+      }
+      const orderedUnits = [
+        ...FIXED_UNITS.filter(u=>groups.has(u)),
+        ...[...groups.keys()].filter(u=>!FIXED_UNITS.includes(u)),
+      ];
+
+      const fillByDist = r => distColors[distKey(r)] || null;
+      const gtotal = orderedUnits.length;
+
+      for(let gi=0; gi<gtotal; gi++){
+        const unit = orderedUnits[gi];
+        const rows = groups.get(unit);
+        setProgress(Math.round(15 + (gi/gtotal)*75), `產生 ${unit}（${gi+1}/${gtotal} 個廠所）…`);
+        await tick();
+
+        if(gi > 0) doc.addPage();
+
+        // 該廠所內出現的行政區(依出現順序),放進頁首帶狀列當小提示
+        const distsHere = [];
+        const seen = new Set();
+        for(const r of rows){ const k=distKey(r); if(!seen.has(k)){seen.add(k);distsHere.push(k);} }
+
+        // 頁首帶狀列的繪製:封裝起來,讓續表(同廠所跨頁)時也能在每頁頂端重印
+        const drawUnitBand = () => {
+          doc.setFillColor(26,58,92);
+          doc.rect(6, 6, A4_W-12, 7, 'F');
+          doc.setFont('NotoSansTC','bold');
+          doc.setFontSize(8);
+          doc.setTextColor(255,255,255);
+          doc.text(`🚨 ${unit}　${rows.length} 件`, 9, 11.5);
+          doc.setFont('NotoSansTC','normal');
+          doc.setFontSize(7);
+          doc.setTextColor(200,220,255);
+          doc.text(`行政區 ${distsHere.length} 區　${dateStr}`, A4_W-9, 11.5, {align:'right'});
+        };
+
+        const opts = makeTableOpts(rows, fillByDist);
+        opts.startY = 15;
+        opts.margin = { left:6, right:6, top:15 };   // top:15 讓續表頁也在帶狀列下方開始
+        opts.didDrawPage = drawUnitBand;             // 每一頁(含續表)頂端重印廠所帶狀列
+        doc.autoTable(opts);
+      }
+
+      // 跳過下方平常模式的 totalChunks 迴圈
+      setProgress(95, '產生檔案…');
+      await tick();
+      const pdfName = `災害模式_案件明細_${now.getMonth()+1}${now.getDate()}_${allRows.length}筆.pdf`;
+      const pdfBlob = doc.output('blob');
+      setProgress(100, '完成！');
+      await tick();
+      showPdfConfirm(pdfBlob, pdfName);
+      return;
+    }
+    // ══════════ 平常模式(原行為不變) ══════════
 
     for(let ci = 0; ci < total; ci++){
       const chunk = totalChunks[ci];
@@ -1276,8 +1436,7 @@ async function exportPDF(){
 
       if(ci > 0) doc.addPage();
 
-      // 頁面標題列
-      const A4_W = doc.internal.pageSize.width;
+      // 頁面標題列（A4_W 已於 try 區塊頂端宣告）
       doc.setFillColor(26,58,92);
       doc.rect(6, 6, A4_W-12, 7, 'F');
       doc.setFont('NotoSansTC','bold');
@@ -1556,10 +1715,12 @@ async function exportImage(scope){
 // 供 buildTable()（網頁表格）與 exportImage()（截圖匯出）共用，
 // 避免同一條「排序後依廠所染色」規則散落在兩個函式中各維護一份。
 function getRowMeta(r){
-  return {
-    bg: sorted ? (unitColors[r.unit] || '#fff') : '#fff',
-    svcCls: svcClass(r.svc),
-  };
+  // 染色依據:災害模式用行政區(distColors),平常模式用廠所(unitColors)
+  const bg = sorted
+    ? (disasterMode ? (distColors[distKey(r)] || '#fff')
+                    : (unitColors[r.unit]   || '#fff'))
+    : '#fff';
+  return { bg, svcCls: svcClass(r.svc) };
 }
 
 function svcClass(svc){
@@ -1607,6 +1768,17 @@ function buildTable(rows){
 
 function renderLegend(){
   const lg=document.getElementById('legend');
+  if(disasterMode){
+    // 災害模式:圖例顯示行政區色,依 dispRows 出現順序
+    const dists=[];
+    const seen=new Set();
+    for(const r of dispRows){ const k=distKey(r); if(!seen.has(k)){seen.add(k);dists.push(k);} }
+    if(!dists.length){lg.classList.remove('show');return;}
+    lg.innerHTML='<span style="font-size:.72rem;color:var(--sub);margin-right:4px">行政區色：</span>'+
+      dists.map(d=>`<span class="leg-item"><span class="leg-swatch" style="background:${distColors[d]||'#fff'}"></span>${e(d)}</span>`).join('');
+    lg.classList.add('show');
+    return;
+  }
   const units=[...new Set(dispRows.map(r=>r.unit).filter(Boolean))];
   if(!units.length){lg.classList.remove('show');return;}
   lg.innerHTML='<span style="font-size:.72rem;color:var(--sub);margin-right:4px">廠所色：</span>'+
