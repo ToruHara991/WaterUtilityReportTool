@@ -1,0 +1,298 @@
+/* css/app.css — 全站樣式。欄寬(col.cA~cL)為特調值,勿隨意更動;服務類別顏色 class 由 js/shared.js 的 SVC_STYLES 產生 */
+:root{
+  --pri:#1a3a5c;--acc:#0077b6;--bg:#edf2f7;--card:#fff;
+  --border:#c8d6e5;--text:#1a2a3a;--sub:#6b8fa8;
+  --row-h:5em;
+  --tbl-fs:.72rem;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans TC','Microsoft JhengHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px}
+
+/* HEADER */
+#topbar{background:var(--pri);color:#fff;padding:10px 16px;display:flex;align-items:center;gap:10px;
+  position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+#topbar h1{font-size:1rem;font-weight:700;letter-spacing:.03em}
+#topbar .sub{font-size:.7rem;opacity:.65;margin-top:1px}
+
+/* UPLOAD */
+#uploadWrap{padding:24px 16px}
+#dropZone{max-width:600px;margin:0 auto;background:var(--card);border:2px dashed var(--acc);
+  border-radius:14px;padding:40px 20px;text-align:center;cursor:pointer;transition:background .2s}
+#dropZone:hover,#dropZone.over{background:#e0f2fe}
+#dropZone .ico{font-size:2.6rem}
+#dropZone h2{font-size:.95rem;color:var(--acc);margin:10px 0 4px;font-weight:700}
+#dropZone p{font-size:.75rem;color:var(--sub)}
+#fileIn{display:none}
+
+/* TOOLBAR */
+#toolbar{display:none;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 14px;
+  background:var(--card);border-bottom:1px solid var(--border);
+  position:sticky;top:44px;z-index:99;box-shadow:0 2px 5px rgba(0,0,0,.07);
+  position:sticky} /* keep sticky, exportMenu uses fixed positioning via JS */
+#toolbar.show{display:flex}
+.btn{padding:6px 13px;border-radius:7px;border:none;font-size:.77rem;font-family:inherit;
+  cursor:pointer;font-weight:700;transition:filter .15s,transform .1s;line-height:1}
+.btn:active{transform:scale(.97)}
+.btn-blue{background:var(--acc);color:#fff}
+.btn-blue:hover{filter:brightness(1.12)}
+.btn-green{background:#16a34a;color:#fff}
+.btn-green:hover{filter:brightness(1.1)}
+.btn-gray{background:#dde6ef;color:var(--text)}
+.btn-gray:hover{filter:brightness(.93)}
+.btn-ghost{background:transparent;color:var(--sub);border:1px solid var(--border)!important}
+.btn-ghost:hover{background:#f0f4f8;color:var(--text)}
+.btn-danger{background:transparent;color:#b91c1c;border:1px solid #fca5a5!important}
+.btn-danger:hover{background:#fff1f2}
+.sep{width:1px;height:22px;background:var(--border);flex-shrink:0}
+#st{margin-left:auto;font-size:.72rem;color:var(--sub);white-space:nowrap}
+
+/* split control */
+#splitRow{display:flex;align-items:center;gap:5px;font-size:.74rem;color:var(--sub)}
+#splitRow label{display:flex;align-items:center;gap:3px;cursor:pointer}
+#rpPage{width:48px;padding:3px 5px;border:1px solid var(--border);border-radius:5px;font-family:inherit;font-size:.74rem}
+
+/* 字級控制 */
+#sizeRow{display:flex;align-items:center;gap:4px;font-size:.74rem;color:var(--sub)}
+.sz-btn{padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:#fff;
+  font-family:inherit;cursor:pointer;font-size:.73rem;color:var(--text);font-weight:600;
+  transition:background .15s,color .15s}
+.sz-btn:hover{background:var(--acc);color:#fff;border-color:var(--acc)}
+.sz-btn.active{background:var(--pri);color:#fff;border-color:var(--pri)}
+
+/* FILTER BAR */
+#filterBar{display:none;padding:8px 14px;background:#f8fafc;border-bottom:2px solid var(--border)}
+#filterBar.show{display:block}
+.fb-section{margin-bottom:6px}
+.fb-label{font-size:.7rem;font-weight:700;color:var(--pri);margin-bottom:4px;display:block}
+.fb-checks{display:flex;flex-wrap:wrap;gap:4px 10px}
+.fb-checks label{display:flex;align-items:center;gap:3px;font-size:.72rem;color:var(--text);cursor:pointer;
+  padding:2px 4px;border-radius:4px;transition:background .12s}
+.fb-checks label:hover{background:#e0f2fe}
+.fb-checks input[type=checkbox]{accent-color:var(--acc);cursor:pointer;width:15px;height:15px;flex-shrink:0}
+.fb-reset{font-size:.68rem;color:var(--acc);cursor:pointer;margin-left:8px;text-decoration:underline;
+  padding:3px 6px;border-radius:4px;display:inline-block}
+.fb-reset:hover{color:var(--pri);background:#e0f2fe}
+
+/* 觸控裝置：加大所有可點擊元素的點擊區域 */
+@media(hover:none) and (pointer:coarse){
+  .btn{padding:10px 16px;font-size:.8rem}
+  .sz-btn{padding:8px 13px}
+  .btn-copy{padding:10px 20px;font-size:.8rem}
+  .pnav-btn{padding:9px 14px;font-size:.76rem;min-width:38px}
+  #pgInput{padding:6px 4px;font-size:.76rem}
+  .fb-checks label{padding:6px 8px;font-size:.76rem}
+  .fb-checks input[type=checkbox]{width:18px;height:18px}
+  .fb-reset{padding:6px 10px;font-size:.74rem}
+  #filterBtn{padding:10px 16px}
+  #rpPage{padding:6px 5px;font-size:.76rem}
+}
+
+/* LEGEND */
+#legend{display:none;flex-wrap:wrap;gap:6px;padding:7px 14px;
+  background:var(--card);border-bottom:1px solid var(--border);font-size:.72rem;align-items:center}
+#legend.show{display:flex}
+.leg-item{display:flex;align-items:center;gap:4px}
+.leg-swatch{width:13px;height:13px;border-radius:3px;border:1px solid #ccc;flex-shrink:0}
+
+/* REPORT BOX */
+#reportWrap{display:none;padding:10px 8px 0}
+#reportWrap.show{display:block}
+#reportBox{background:var(--card);border-radius:10px;box-shadow:0 1px 5px rgba(0,0,0,.09);
+  padding:14px 16px;max-width:100%}
+#reportBox h3{font-size:.8rem;color:var(--pri);font-weight:700;margin-bottom:10px;
+  display:flex;align-items:center;gap:6px}
+.rpt-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.rpt-row label{font-size:.76rem;color:var(--sub);white-space:nowrap}
+#shiftSel{padding:5px 8px;border:1px solid var(--border);border-radius:6px;
+  font-family:inherit;font-size:.76rem;color:var(--text);background:#fff;cursor:pointer;
+  max-width:260px}
+#msgOut{width:100%;min-height:100px;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;
+  font-family:inherit;font-size:.82rem;line-height:1.8;resize:vertical;background:#f8fafc;
+  color:var(--text);cursor:text}
+#msgOut:focus{outline:none;border-color:var(--acc)}
+.copy-row{display:flex;justify-content:flex-end;margin-top:6px}
+#shiftFilterLabel:hover{background:#e0f2fe!important}
+#shiftFilterLabel.active{background:#dbeafe!important;border-color:var(--acc);color:var(--acc)}
+.btn-copy{padding:5px 14px;border-radius:6px;border:none;cursor:pointer;font-family:inherit;
+  font-size:.75rem;font-weight:700;background:#0077b6;color:#fff;transition:filter .15s}
+.btn-copy:hover{filter:brightness(1.1)}
+.copied{background:#16a34a!important}
+
+/* PAGES */
+#pages{padding:10px 8px 60px}
+.page-block{background:var(--card);border-radius:10px;margin-bottom:16px;
+  box-shadow:0 1px 5px rgba(0,0,0,.09);overflow:hidden}
+.page-cap{background:var(--pri);color:#fff;font-size:.66rem;padding:3px 10px;
+  display:flex;justify-content:space-between;letter-spacing:.05em;font-weight:700}
+
+/* TABLE */
+.t-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:var(--tbl-fs);table-layout:fixed}
+thead th{background:var(--pri);color:#fff;padding:5px 3px;text-align:center;
+  vertical-align:middle;line-height:1.2;word-break:break-all;white-space:pre-wrap;
+  border:1px solid rgba(255,255,255,.18);font-size:.68rem;font-weight:700}
+tbody td{padding:2px 3px;vertical-align:top;border:1px solid var(--border);
+  word-break:break-all;line-height:1.3;overflow:hidden}
+.clip{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;      /* 👈 限制最多4改3行 */
+  overflow:hidden;max-height:var(--row-h)}
+td.td-narrow .clip{-webkit-line-clamp:2}
+
+/* column widths */
+col.cA{width:44px} col.cB{width:68px} col.cC{width:70px}
+col.cD{width:56px} col.cE{width:60px} col.cF{width:168px}
+col.cG{width:30px} col.cH{width:34px} col.cI{width:96px}
+col.cJ{width:36px} col.cK{width:62px} col.cL{width:64px}
+
+/* LOADING */
+#overlay{display:none;position:fixed;inset:0;background:rgba(255,255,255,.9);
+  z-index:200;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+#overlay.show{display:flex}
+.spin{width:40px;height:40px;border:4px solid var(--border);border-top-color:var(--acc);
+  border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* 服務類別文字顏色(.svc-repair 等 class 由 JS 的 SVC_STYLES 產生,見 script 內「單一來源定義」) */
+
+/* 匯出圖片進度遮罩 */
+#exportOverlay{
+  display:none;position:fixed;inset:0;background:rgba(255,255,255,.93);
+  z-index:500;align-items:center;justify-content:center;flex-direction:column;gap:14px;
+}
+#exportOverlay.show{display:flex}
+#exportOverlay .exp-title{font-size:1rem;font-weight:800;color:#1a3a5c}
+#exportOverlay .exp-sub{font-size:.78rem;color:#6b8fa8}
+#expProgress{width:220px;height:8px;border-radius:4px;background:#c8d6e5;overflow:hidden}
+#expProgressBar{height:100%;width:0%;background:#0077b6;border-radius:4px;transition:width .15s}
+
+/* 下載確認卡 */
+#dlConfirm{display:none;flex-direction:column;align-items:center;gap:14px;
+  background:#fff;border-radius:14px;box-shadow:0 4px 24px rgba(0,0,0,.13);
+  padding:28px 32px;min-width:240px;text-align:center}
+#dlConfirm.show{display:flex}
+#dlConfirm .dlc-title{font-size:.95rem;font-weight:800;color:#1a3a5c}
+#dlConfirm .dlc-sub{font-size:.76rem;color:#6b8fa8;margin-top:-6px}
+#dlConfirm .dlc-row{display:flex;gap:10px;margin-top:4px}
+.dlc-btn{padding:9px 22px;border-radius:8px;border:none;font-family:inherit;
+  font-size:.82rem;font-weight:700;cursor:pointer;transition:filter .15s}
+.dlc-btn-dl{background:#16a34a;color:#fff}
+.dlc-btn-dl:hover{filter:brightness(1.1)}
+.dlc-btn-cancel{background:#e5e7eb;color:#374151}
+.dlc-btn-cancel:hover{filter:brightness(.95)}
+
+/* 下載按鈕變身 — 不再需要浮動框樣式 */
+
+/* 分頁控制列 */
+#pagerBar {
+  display:none; align-items:center; gap:6px; padding:6px 14px;
+  background:#f0f6ff; border-bottom:2px solid var(--border);
+  position:sticky; top:88px; z-index:98; flex-wrap:wrap;
+}
+#pagerBar.show { display:flex }
+#pagerBar .pg-info { font-size:.75rem; color:var(--pri); font-weight:700; margin-right:4px; }
+.pnav-btn {
+  padding:4px 11px; border-radius:6px; border:1px solid var(--border);
+  background:#fff; font-size:.73rem; font-family:inherit; cursor:pointer;
+  color:var(--text); font-weight:600; transition:background .15s, color .15s;
+  min-width:28px; text-align:center;
+}
+.pnav-btn:hover { background:var(--acc); color:#fff; border-color:var(--acc); }
+.pnav-btn.cur { background:var(--pri); color:#fff; border-color:var(--pri); }
+.pnav-btn:disabled { opacity:.35; cursor:not-allowed; }
+#pagerBar .pg-jump { display:flex; align-items:center; gap:4px; margin-left:auto; font-size:.73rem; color:var(--sub); }
+#pgInput { width:40px; padding:2px 4px; border:1px solid var(--border); border-radius:4px; font-family:inherit; font-size:.73rem; text-align:center; }
+
+/* 篩選按鈕高亮 */
+#filterBtn.active { background:#e0f2fe!important; color:var(--acc)!important; border:1px solid var(--acc); }
+
+/* 災害模式按鈕:開啟時整顆變紅,明顯提示目前處於特殊模式 */
+#disasterBtn.active { background:#dc2626!important; color:#fff!important; }
+#disasterBtn.active:hover { filter:brightness(1.08); }
+
+/* RESPONSIVE */
+@media(max-width:480px){
+  #topbar h1{font-size:.88rem}
+  col.cF{width:128px} col.cI{width:80px}
+  table{font-size:.67rem}
+  #st{display:none}
+  #shiftSel{max-width:200px;font-size:.7rem}
+}
+/* 安全標語客製化樣式 */
+.security-banner {
+  max-width: 600px;
+  margin: 16px auto 0;
+  padding: 12px 16px;
+  background-color: #f0fdf4; /* 溫和的淺綠色背景 */
+  border: 1px solid #bbf7d0; /* 綠色邊框 */
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.security-title {
+  font-size: .82rem;
+  font-weight: 700;
+  color: #16a34a; /* 綠色標題 */
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.security-desc {
+  font-size: .75rem;
+  color: #3f6212; /* 深綠色文字，確保易讀性 */
+  line-height: 1.5;
+}
+
+.security-desc strong {
+  color: #15803d;
+  font-weight: 700;
+}
+
+/* 觸控裝置適度加大間距 */
+@media(hover:none) and (pointer:coarse){
+  .security-banner {
+    padding: 16px;
+    margin-top: 20px;
+  }
+  .security-desc {
+    font-size: .78rem;
+  }
+}
+
+/* 統計摘要(選填、預設收合):刻意低調,展開後才顯示內容;手機寬度下不產生橫向捲動 */
+#summaryBox{background:var(--card);border-radius:10px;box-shadow:0 1px 5px rgba(0,0,0,.09);
+  margin-bottom:10px;padding:0 16px;max-width:100%}
+#summaryBox>summary{cursor:pointer;list-style:none;padding:9px 0;font-size:.76rem;font-weight:700;
+  color:var(--sub);display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+#summaryBox>summary::-webkit-details-marker{display:none}
+#summaryBox>summary::before{content:'▸';font-size:.7rem;color:var(--sub)}
+#summaryBox[open]>summary::before{content:'▾'}
+#summaryBox>summary span{font-weight:400;font-size:.66rem;opacity:.8}
+#summaryBox[open]>summary{color:var(--pri);border-bottom:1px solid var(--border);margin-bottom:8px}
+#summaryBody{padding-bottom:10px;font-size:.76rem}
+.sm-over{color:var(--text);line-height:1.7;margin-bottom:6px}
+.sm-sec{margin-top:12px}
+.sm-h{font-size:.72rem;font-weight:700;color:var(--pri);margin-bottom:5px}
+.sm-h small{font-weight:400;color:var(--sub);margin-left:6px;font-size:.66rem}
+.sm-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.sm-tbl{border-collapse:collapse;width:100%;table-layout:auto;font-size:.72rem}
+.sm-tbl th{background:#f0f6ff;color:var(--pri);padding:4px 6px;border:1px solid var(--border);font-weight:700;white-space:nowrap}
+.sm-tbl td{padding:3px 6px;border:1px solid var(--border);text-align:center}
+.sm-tbl td.sm-u{text-align:left;white-space:nowrap}
+.sm-tbl tr.sm-sum td{background:#f8fafc;font-weight:700}
+.sm-zero{color:#b8c6d4}
+.sm-item{margin-bottom:7px}
+.sm-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.sm-lbl{min-width:0;overflow-wrap:anywhere}
+.sm-lbl small{margin-left:6px;color:var(--sub);font-size:.64rem}
+.sm-n{white-space:nowrap;flex-shrink:0}
+.sm-n small{margin-left:4px;color:var(--sub);font-size:.64rem}
+.sm-bar{height:5px;border-radius:3px;background:#e3ebf3;margin-top:2px;overflow:hidden}
+.sm-bar i{display:block;height:100%;background:var(--acc);border-radius:3px}
+.sm-note,.sm-empty{color:var(--sub);font-size:.68rem;line-height:1.6}
+
+/* 匯出選單裡 Excel 的選填項(低調、小字) */
+.xl-opts{padding:0 16px 6px 22px;font-size:.66rem;color:var(--sub);display:flex;flex-direction:column;gap:3px}
+.xl-opts label{display:flex;align-items:center;gap:4px;cursor:pointer;line-height:1.5}
+.xl-opts input{accent-color:var(--acc);width:14px;height:14px;flex-shrink:0}
+@media(hover:none) and (pointer:coarse){.xl-opts{font-size:.72rem;gap:6px;padding-bottom:8px}.xl-opts input{width:18px;height:18px}}

@@ -1,0 +1,12 @@
+{
+  "name": "waterutilityreporttool-tests",
+  "private": true,
+  "scripts": {
+    "test": "node run.js",
+    "test:update": "node run.js --update",
+    "test:dump": "node run.js --dump"
+  },
+  "devDependencies": {
+    "playwright": "^1.45.0"
+  }
+}
