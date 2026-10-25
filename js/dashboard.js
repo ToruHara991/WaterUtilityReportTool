@@ -9,7 +9,7 @@
  * ═══════════════════════════════════════════════════════════ */
 
 const DASH = { open: false, win: null, root: null, X: [], S: null, trend: null, F: null, playing: false, timer: 0,
-               listN: 30, last: {}, first: true, theme: 'dark', drag: null, qTimer: 0 };
+               listN: 30, last: {}, first: true, theme: 'dark', drag: null, qTimer: 0, tap: null, lastScroll: -1e9 };
 const DASH_KINDS = [...SVC_STYLES.map(s => ({ key: s.key, label: s.label })), { key: 'other', label: '其他' }];
 const dashFresh = () => ({ unit: new Set(), svc: new Set(), dk: new Set(), rk: new Set(), t: null, q: '' });
 const dashWin = () => DASH.win || window;
@@ -210,7 +210,16 @@ function dashPlay(){
 }
 function dashClear(){ DASH.F = dashFresh(); DASH.root.querySelector('#dQ').value = ''; dashStop(); DASH.listN = 30; dashRender(); }
 
+// 觸控防誤點:捲動(含慣性捲動中點一下止滑)、手指移動超過 8px,都不算「點選」。
+function dashTapOk(ev){
+  const d = DASH.tap; if(!d) return true;
+  const moved = Math.hypot(ev.clientX - d.x, ev.clientY - d.y) > 8;
+  return !(d.rolling || moved || Math.abs(DASH.root.scrollTop - d.st) > 2);
+}
+
 function dashClick(ev){
+  const ok = dashTapOk(ev); DASH.tap = null;
+  if(!ok) return;
   const t = ev.target.closest('[data-f],[data-heat],[data-x],[data-act]'); if(!t) return;
   if(t.dataset.f){ DASH.listN = 30; dashToggle(t.dataset.f, t.dataset.v); return; }
   if(t.dataset.heat){
@@ -234,24 +243,29 @@ function dashClick(ev){
 
 // 時間軸拖曳選取(pointer events:滑鼠與觸控共用);拖曳中只改外觀,放開才套用篩選
 function dashPointer(ev){
+  DASH.tap = { x: ev.clientX, y: ev.clientY, st: DASH.root.scrollTop, rolling: ev.pointerType === 'touch' && dashWin().performance.now() - DASH.lastScroll < 160 };   // 只有觸控才有「慣性捲動中點一下止滑」
   const tl = ev.target.closest('.tl'); if(!tl || !DASH.trend) return;
   const n = DASH.trend.items.length, rect = tl.getBoundingClientRect();
   const at = e2 => Math.max(0, Math.min(n - 1, Math.floor((e2.clientX - rect.left) / rect.width * n)));
   dashStop();
   const a = at(ev); DASH.drag = { a, b: a, moved: false };
-  tl.setPointerCapture(ev.pointerId);
+  try { tl.setPointerCapture(ev.pointerId); } catch(_) {}
   const paint = () => { const lo = Math.min(DASH.drag.a, DASH.drag.b), hi = Math.max(DASH.drag.a, DASH.drag.b);
     tl.querySelectorAll('.tc').forEach((c, i) => c.classList.toggle('off', i < lo || i > hi));
     DASH.root.querySelector('#dSel').textContent = dTimeLabel(lo, hi); };
   const move = e2 => { const b = at(e2); if(b !== DASH.drag.b){ DASH.drag.b = b; DASH.drag.moved = true; paint(); } };
+  const end = () => { tl.removeEventListener('pointermove', move); tl.removeEventListener('pointerup', up); tl.removeEventListener('pointercancel', cancel); };
+  // 瀏覽器接手垂直捲動(pointercancel)=使用者只是在滑頁面:放棄選取、恢復原狀,不套用篩選
+  const cancel = () => { end(); DASH.drag = null; dashRender(); };
   const up = () => {
-    tl.removeEventListener('pointermove', move); tl.removeEventListener('pointerup', up); tl.removeEventListener('pointercancel', up);
+    end();
     const d = DASH.drag; DASH.drag = null; if(!d) return;
+    if(DASH.tap && DASH.tap.rolling && !d.moved){ dashRender(); return; }   // 止住慣性捲動的那一下不算點選
     const lo = Math.min(d.a, d.b), hi = Math.max(d.a, d.b), cur = DASH.F.t;
     DASH.F.t = (!d.moved && cur && cur[0] === lo && cur[1] === hi) ? null : [lo, hi];   // 單點同一格再點一次=取消
     DASH.listN = 30; dashRender();
   };
-  tl.addEventListener('pointermove', move); tl.addEventListener('pointerup', up); tl.addEventListener('pointercancel', up);
+  tl.addEventListener('pointermove', move); tl.addEventListener('pointerup', up); tl.addEventListener('pointercancel', cancel);
   paint();
 }
 
@@ -291,6 +305,7 @@ function openDashboard(){
   DASH.F = dashFresh(); DASH.last = {}; DASH.listN = 30; DASH.first = true;
   const R = DASH.root = document.createElement('div');
   R.className = 'dash' + (DASH.theme === 'light' ? ' light' : ''); R.tabIndex = -1; R.innerHTML = DASH_SKELETON;
+  R.addEventListener('scroll', () => { DASH.lastScroll = dashWin().performance.now(); }, { passive: true });
   R.addEventListener('click', dashClick);
   R.addEventListener('pointerdown', dashPointer);
   R.addEventListener('keydown', ev => { if(ev.key === 'Escape'){ ev.stopPropagation(); dashClose(); } });

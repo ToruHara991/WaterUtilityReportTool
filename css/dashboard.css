@@ -61,7 +61,7 @@
 .kpi-trend.up .kn2{color:var(--up)}.kpi-trend.down .kn2{color:var(--down)}
 
 /* 時間軸 */
-.tl{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:2px;height:150px;align-items:end;cursor:crosshair;touch-action:none;user-select:none;
+.tl{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:2px;height:150px;align-items:end;cursor:crosshair;touch-action:pan-y;user-select:none;
   border-bottom:1px solid var(--line)}
 .tc{height:100%;display:flex;align-items:flex-end;border-radius:3px 3px 0 0;transition:opacity .2s}
 .tc:hover{background:rgba(148,163,184,.12)}
@@ -124,7 +124,10 @@
   .d-head{padding:8px 12px}.d-chips{padding:8px 12px 0}.d-body{grid-template-columns:minmax(0,1fr);gap:10px;padding:10px 12px 24px}
   .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.dash .kpi{padding:8px 12px;min-height:66px}.kn{font-size:1.6rem}.kn2{font-size:1.25rem}.kpi-total{grid-column:1/-1}
   .card{padding:12px}.tl{height:120px}
-  .hb{grid-template-columns:minmax(4em,6.5em) 1fr 2.2em;padding:7px 4px}
+  /* 手機:名稱獨佔一行完整顯示(行政區+路段不省略),長條放下一行 */
+  .hb{grid-template-columns:1fr auto;grid-template-areas:"l n" "t t";gap:4px 8px;padding:8px 6px}
+  .hb-l{grid-area:l;white-space:normal;overflow:visible;font-size:.88rem;line-height:1.35;overflow-wrap:anywhere}
+  .hb-n{grid-area:n}.hb-t{grid-area:t}
   .hm{grid-template-columns:minmax(4.2em,6em) repeat(var(--n),minmax(0,1fr))}.hm-c{height:20px;font-size:.6rem}
   #dQ{flex:1 1 100%}
   .d-tools button{padding:7px 10px}

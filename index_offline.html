@@ -772,6 +772,143 @@ col.cJ{width:36px} col.cK{width:62px} col.cL{width:64px}
 @media(hover:none) and (pointer:coarse){.xl-opts{font-size:.72rem;gap:6px;padding-bottom:8px}.xl-opts input{width:18px;height:18px}}
 
 </style>
+<style>/* css/dashboard.css */
+/* css/dashboard.css — 災情看板(js/dashboard.js)專用樣式,全部限定在 .dash 範圍內,不影響主畫面。
+   主題用 CSS 變數(深色為預設,.light 為淺色);類別色 --c-repair/supply/water/construct/other 與 SVC_STYLES 同色系。 */
+.dash{
+  --bg:#0a1220;--panel:#111c30;--panel2:#16233b;--line:rgba(148,163,184,.16);--tx:#e6edf7;--sub:#8ba0bd;--acc:#38bdf8;--glow:0 0 0 1px rgba(56,189,248,.5),0 0 18px rgba(56,189,248,.18);
+  --c-repair:#f87171;--c-supply:#60a5fa;--c-water:#34d399;--c-construct:#fbbf24;--c-other:#94a3b8;--heat:56,189,248;--up:#f87171;--down:#34d399;
+  position:fixed;inset:0;z-index:1000;overflow:auto;background:var(--bg);color:var(--tx);outline:none;
+  font-family:'Noto Sans TC','Microsoft JhengHei',sans-serif;font-size:14px;-webkit-text-size-adjust:100%;
+  background-image:radial-gradient(1200px 500px at 15% -10%,rgba(56,189,248,.10),transparent 60%),radial-gradient(900px 400px at 100% 0,rgba(168,85,247,.08),transparent 60%);
+}
+.dash.light{
+  --bg:#eef3f9;--panel:#fff;--panel2:#f4f7fb;--line:rgba(26,58,92,.14);--tx:#14263a;--sub:#5b7490;--acc:#0369a1;--glow:0 0 0 1px rgba(3,105,161,.55),0 4px 14px rgba(3,105,161,.12);
+  --c-repair:#b91c1c;--c-supply:#1d4ed8;--c-water:#047857;--c-construct:#b45309;--c-other:#64748b;--heat:3,105,161;--up:#b91c1c;--down:#047857;background-image:none;
+}
+.dash.popped{position:relative;inset:auto;min-height:100vh;z-index:auto}
+.dash *{box-sizing:border-box}
+.dash button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+
+/* 標題列 */
+.d-head{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 18px;
+  background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.d-title{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.d-title h2{font-size:1.25rem;font-weight:800;letter-spacing:.02em}
+.d-title span{color:var(--sub);font-size:.82rem}
+.d-tools{display:flex;gap:6px}
+.d-tools button{padding:6px 12px;border-radius:8px;background:var(--panel);border:1px solid var(--line);font-size:.8rem;font-weight:700}
+.d-tools button:hover{border-color:var(--acc)}
+.dash .d-dock{display:none}.dash.popped .d-dock{display:inline-block}.dash.popped .d-pop{display:none}
+
+/* 已套用的篩選 */
+.d-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:10px 18px 0;min-height:42px}
+.d-hint{color:var(--sub);font-size:.78rem}
+.chip{padding:4px 10px;border-radius:99px;font-size:.78rem;font-weight:700;background:rgba(56,189,248,.14);color:var(--acc);border:1px solid rgba(56,189,248,.4)}
+.chip:hover{background:rgba(56,189,248,.26)}
+.chip-clear{background:transparent;color:var(--sub);border-color:var(--line)}
+
+/* 版面 */
+.d-body{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:12px 18px 28px;max-width:1700px;margin:0 auto}
+.kpis{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0}
+.card.wide{grid-column:1/-1}
+.card h3{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:.95rem;font-weight:800;margin-bottom:12px}
+.card h3 small{color:var(--sub);font-size:.72rem;font-weight:500}
+.card h3 .sp{flex:1}
+.d-sel{font-size:.78rem;color:var(--acc);font-weight:700}
+.dash .d-btn{padding:4px 12px;border-radius:8px;background:var(--acc);color:#04121f;font-weight:800;font-size:.8rem}
+.dash.light .d-btn{color:#fff}
+.d-empty,.d-note,.d-count{color:var(--sub);font-size:.8rem;padding:6px 0}
+
+/* KPI */
+.dash .kpi{position:relative;display:flex;flex-direction:column;justify-content:center;gap:2px;text-align:left;padding:14px 16px;border-radius:14px;min-height:92px;
+  background:linear-gradient(160deg,var(--panel2),var(--panel));border:1px solid var(--line);transition:transform .15s,box-shadow .15s,opacity .2s}
+.kpi label{color:var(--sub);font-size:.78rem;cursor:inherit}
+.kn{font-size:2.3rem;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums}
+.kn2{font-size:1.5rem;font-weight:800;line-height:1.2}.kn2 small{font-size:.8rem;margin-left:3px;color:var(--sub)}
+.hotn{font-size:1.25rem}
+.kpi-total .kn{color:var(--acc)}
+.kpi-svc{cursor:pointer;border-left:4px solid var(--kc)}.kpi-svc .kn{color:var(--kc)}
+.kpi-svc:hover{transform:translateY(-2px)}
+.kpi-svc.sel{box-shadow:var(--glow)}
+.kpi-svc.dim,.hb.dim{opacity:.4}
+.kpi-trend.up .kn2{color:var(--up)}.kpi-trend.down .kn2{color:var(--down)}
+
+/* 時間軸 */
+.tl{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:2px;height:150px;align-items:end;cursor:crosshair;touch-action:pan-y;user-select:none;
+  border-bottom:1px solid var(--line)}
+.tc{height:100%;display:flex;align-items:flex-end;border-radius:3px 3px 0 0;transition:opacity .2s}
+.tc:hover{background:rgba(148,163,184,.12)}
+.tc.off{opacity:.18}
+.tcs{width:100%;display:flex;flex-direction:column-reverse;border-radius:3px 3px 0 0;overflow:hidden;min-height:0}
+.tcs b{display:block;min-height:1px}
+.tc.peak .tcs{box-shadow:0 0 12px rgba(248,113,113,.45)}
+.tax{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:2px;margin-top:5px;font-size:.68rem;color:var(--sub)}
+.tax span{white-space:nowrap;overflow:visible;text-align:center;transform:translateX(0)}
+
+/* 橫向長條(廠所/行政區/路段) */
+.hb{display:grid;grid-template-columns:minmax(4.5em,8em) 1fr 2.4em;gap:8px;align-items:center;padding:5px 6px;border-radius:8px;cursor:pointer;transition:opacity .2s,background .15s}
+.hb:hover{background:rgba(148,163,184,.1)}
+.hb.sel{background:rgba(56,189,248,.14);box-shadow:inset 3px 0 0 var(--acc)}
+.hb-l{font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb-t{height:14px;background:rgba(148,163,184,.1);border-radius:7px;overflow:hidden}
+.hb-t i{display:flex;height:100%;border-radius:7px;overflow:hidden}
+.hb-t b{display:block}
+.hb-n{font-weight:800;text-align:right;font-variant-numeric:tabular-nums;font-size:.86rem}
+
+/* 熱力圖 */
+.hm{display:grid;grid-template-columns:minmax(5em,9em) repeat(var(--n),minmax(0,1fr));gap:2px;align-items:center;overflow:hidden}
+.hm-x{font-size:.64rem;color:var(--sub);white-space:nowrap;text-align:center;overflow:visible}
+.hm-y{font-size:.78rem;padding-right:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.hm-y.sel{color:var(--acc);font-weight:800}
+.hm-c{display:flex;align-items:center;justify-content:center;height:24px;border-radius:4px;font-style:normal;font-size:.68rem;font-weight:800;cursor:pointer;
+  background:rgba(var(--heat),var(--a));color:#04121f;transition:opacity .2s,transform .12s}
+.dash.light .hm-c{color:#fff}
+.hm-c.z{background:rgba(148,163,184,.08);color:transparent}
+.hm-c:hover{transform:scale(1.18);position:relative;z-index:1}
+.hm-c.off{opacity:.25}
+
+/* 清單 */
+#dQ{flex:0 1 280px;min-width:0;padding:6px 12px;border-radius:99px;border:1px solid var(--line);background:var(--panel2);color:var(--tx);font:inherit;font-size:.8rem;font-weight:400}
+#dQ:focus{outline:none;border-color:var(--acc)}
+#dList{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:8px}
+#dList .d-count,#dList .d-more,#dList .d-empty{grid-column:1/-1}
+.li{position:relative;padding:9px 12px 9px 14px;border-radius:10px;background:var(--panel2);border-left:4px solid var(--kc)}
+.li-a{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:.8rem}
+.li-a b{font-variant-numeric:tabular-nums}
+.li-k{color:var(--kc);font-weight:800}
+.li-u{margin-left:auto;color:var(--sub)}
+.li-b{font-size:.86rem;margin-top:2px;overflow-wrap:anywhere}
+.li-c{font-size:.78rem;color:var(--sub);margin-top:2px;overflow-wrap:anywhere}
+.li-r{font-size:.68rem;color:var(--sub);margin-top:2px;opacity:.8}
+.d-more{display:block;width:100%;padding:9px;border-radius:10px;border:1px dashed var(--line);color:var(--acc);font-weight:700}
+
+/* 開場動畫(只在第一次顯示) */
+@keyframes d-grow-y{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes d-grow-x{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes d-fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.dash.first .tcs{transform-origin:bottom;animation:d-grow-y .7s cubic-bezier(.2,.8,.2,1) both}
+.dash.first .hb-t i{transform-origin:left;animation:d-grow-x .8s cubic-bezier(.2,.8,.2,1) both}
+.dash.first .kpi,.dash.first .card{animation:d-fade .5s ease both}
+@media(prefers-reduced-motion:reduce){.dash *{animation:none!important;transition:none!important}}
+
+/* 平板/手機 */
+@media(max-width:1100px){.d-body{grid-template-columns:repeat(2,minmax(0,1fr))}.d-body .card:nth-of-type(4){grid-column:1/-1}}
+@media(max-width:700px){
+  .d-head{padding:8px 12px}.d-chips{padding:8px 12px 0}.d-body{grid-template-columns:minmax(0,1fr);gap:10px;padding:10px 12px 24px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.dash .kpi{padding:8px 12px;min-height:66px}.kn{font-size:1.6rem}.kn2{font-size:1.25rem}.kpi-total{grid-column:1/-1}
+  .card{padding:12px}.tl{height:120px}
+  /* 手機:名稱獨佔一行完整顯示(行政區+路段不省略),長條放下一行 */
+  .hb{grid-template-columns:1fr auto;grid-template-areas:"l n" "t t";gap:4px 8px;padding:8px 6px}
+  .hb-l{grid-area:l;white-space:normal;overflow:visible;font-size:.88rem;line-height:1.35;overflow-wrap:anywhere}
+  .hb-n{grid-area:n}.hb-t{grid-area:t}
+  .hm{grid-template-columns:minmax(4.2em,6em) repeat(var(--n),minmax(0,1fr))}.hm-c{height:20px;font-size:.6rem}
+  #dQ{flex:1 1 100%}
+  .d-tools button{padding:7px 10px}
+}
+
+</style>
 </head>
 <body>
 
@@ -810,6 +947,7 @@ col.cJ{width:36px} col.cK{width:62px} col.cL{width:64px}
   <button class="btn btn-danger" onclick="reUpload()">📂 重新上傳</button>
   <div class="sep"></div>
   <button class="btn btn-gray" id="disasterBtn" onclick="toggleDisaster()">🚨 災害模式：關</button>
+  <button class="btn btn-gray" id="dashBtn" onclick="openDashboard()">📊 災情看板</button>
   <div class="sep"></div>
   <button class="btn btn-gray" id="filterBtn" onclick="toggleFilter()">▼ 篩選</button>
   <div class="sep"></div>
@@ -842,6 +980,10 @@ col.cJ{width:36px} col.cK{width:62px} col.cL{width:64px}
     <div onclick="exportPDF()" style="padding:9px 16px;font-size:.78rem;cursor:pointer;
       color:#1a2a3a;font-weight:700" onmouseenter="this.style.background='#e0f2fe'"
       onmouseleave="this.style.background=''">📑 匯出全部資料（PDF）</div>
+    <!-- PDF 選填項:預設不勾,點選時不關閉選單 -->
+    <div class="xl-opts" onclick="event.stopPropagation()">
+      <label><input type="checkbox" id="chkPdfSummary"> 加「戰情摘要」首頁（長官速覽）</label>
+    </div>
     <div style="margin:3px 10px;border-top:1px solid #e0e8f0"></div>
     <div onclick="exportExcel()" style="padding:9px 16px;font-size:.78rem;cursor:pointer;
       color:#1a2a3a;font-weight:700" onmouseenter="this.style.background='#e0f2fe'"
@@ -1697,13 +1839,16 @@ function roadOf(addr){
 //  dists    : [{ label, n, units:[廠所] }] 依件數由多到少(同數依名稱)
 //  roads    : [{ label, n }] 同一(縣市+行政區+路段)有 2 件以上者,由多到少
 //  peak     : { label, n } 單一小時內案件最多者(無時間資料則 null)
+//  trend    : { unit:'hour'|'day', items:[{label,n}] } 依時間排序、補零的案件湧入趨勢(超過 36 個小時改用「日」);無時間資料則 null
+//  latest   : 資料中最晚的申報時間字串(如「5/30 14:05」),無則 ''
 function computeSummary(rows){
   const keys = SVC_STYLES.map(s => s.key);
   const zero = () => Object.fromEntries([...keys, 'other'].map(k => [k, 0]));
   const byUnit = new Map(), svcTotals = zero();
   const distMap = new Map(), roadMap = new Map(), hourMap = new Map();
   const multiCity = new Set(rows.map(r => r.city).filter(Boolean)).size > 1;
-  let roadUnknown = 0;
+  let roadUnknown = 0, latestV = 0, latest = '';
+  const hourV = new Map();   // 小時鍵 → 該小時起點的 [月,日,時],供趨勢排序補零
 
   for(const r of rows){
     const k = (svcStyle(r.svc) || { key: 'other' }).key;
@@ -1727,7 +1872,9 @@ function computeSummary(rows){
     if(tm){
       const hk = tm[1] + ' ' + pad(+tm[2]);
       hourMap.set(hk, (hourMap.get(hk) || 0) + 1);
+      hourV.set(hk, [+tm[1].split('/')[0], +tm[1].split('/')[1], +tm[2]]);
     }
+    if(r.timeVal > latestV){ latestV = r.timeVal; latest = r.time; }
   }
 
   const byN = (a, b) => b.n - a.n || a.label.localeCompare(b.label, 'zh-Hant');
@@ -1739,7 +1886,33 @@ function computeSummary(rows){
     if(!peak || n > peak.n) peak = { label: `${hk}:00–${hk.split(' ')[1]}:59`, n };
   }
   return { total: rows.length, unitRows, svcTotals, hasOther: svcTotals.other > 0,
-           dists, roads, roadUnknown, peak, multiCity };
+           dists, roads, roadUnknown, peak, multiCity, trend: buildTrend(hourMap, hourV), latest };
+}
+
+// 趨勢:小時為單位並補零;跨度超過 36 小時改以「日」為單位。年份只用來換算日曆(不影響標籤)。
+function buildTrend(hourMap, hourV){
+  if(!hourMap.size) return null;
+  const T = hk => { const [m, d, h] = hourV.get(hk); return Date.UTC(2000, m - 1, d, h); };
+  const keys = [...hourMap.keys()];
+  const ts = keys.map(T), lo = Math.min(...ts), hi = Math.max(...ts);
+  const byT = new Map(keys.map(k => [T(k), hourMap.get(k)]));
+  const hours = Math.round((hi - lo) / 3600000) + 1;
+  const items = [];
+  if(hours <= 36){
+    for(let t = lo; t <= hi; t += 3600000){
+      const d = new Date(t);
+      items.push({ label: `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${pad(d.getUTCHours())}`, n: byT.get(t) || 0 });
+    }
+    return { unit: 'hour', items };
+  }
+  const dayN = new Map();
+  for(const [t, n] of byT){ const d = new Date(t); const k = Date.UTC(2000, d.getUTCMonth(), d.getUTCDate()); dayN.set(k, (dayN.get(k) || 0) + n); }
+  const d0 = Math.min(...dayN.keys()), d1 = Math.max(...dayN.keys());
+  for(let t = d0; t <= d1; t += 86400000){
+    const d = new Date(t);
+    items.push({ label: `${d.getUTCMonth() + 1}/${d.getUTCDate()}`, n: dayN.get(t) || 0 });
+  }
+  return { unit: 'day', items };
 }
 
 // ── 畫面 ──
@@ -1791,6 +1964,157 @@ document.getElementById('summaryBox').addEventListener('toggle', () => {
 });
 
 </script>
+<script>/* js/pdfsummary.js */
+/* ═══════════════════════════════════════════════════════════
+ * js/pdfsummary.js — PDF「戰情摘要首頁」與災害模式各所頁首小計(選填,預設不勾)
+ * 設計目標:長官 5 秒內看懂。由上而下:一句話結論 → 四個大數字 → 案件湧入趨勢 → 廠所×類別 → 行政區/路段前 5。
+ * 統計一律來自 summary.js 的 computeSummary()(與畫面摘要、Excel 同一份),本檔只負責畫到 jsPDF。
+ * 勾選項在匯出選單(#chkPdfSummary),由 exportPDF() 讀取;未勾選時 PDF 與原本完全相同。
+ * (classic script:所有檔案共用全域作用域,載入順序見 index.html;符號索引:node tools/symbols.js)
+ * ═══════════════════════════════════════════════════════════ */
+
+// 勾選項記憶(localStorage 可能不可用,一律 try/catch)
+(function(){
+  const box = document.getElementById('chkPdfSummary');
+  if(!box) return;
+  try { box.checked = localStorage.getItem('wurt.pdfSummary') === '1'; } catch(_) {}
+  box.addEventListener('change', ev => { try { localStorage.setItem('wurt.pdfSummary', ev.target.checked ? '1' : '0'); } catch(_) {} });
+})();
+
+// 趨勢文字:「最新一小時(5/30 14時)9 件,前一小時 6 件,增加」;資料不足回傳 ''
+function trendNote(S){
+  const it = S.trend && S.trend.items;
+  if(!it || it.length < 2) return '';
+  const a = it[it.length - 1], b = it[it.length - 2];
+  const u = S.trend.unit === 'hour' ? '小時' : '天';
+  const mood = a.n > b.n ? '增加' : a.n < b.n ? '減少' : '持平';
+  return `最新一${u}（${a.label}${S.trend.unit === 'hour' ? '時' : ''}）${a.n} 件，前一${u} ${b.n} 件，${mood}`;
+}
+
+// 一句話結論(自動產生)
+function leadSentence(S){
+  if(!S.total) return '目前沒有案件資料。';
+  const kinds = [...SVC_STYLES.map(s => ({ label: s.label, n: S.svcTotals[s.key] })), { label: '其他', n: S.svcTotals.other }];
+  const top = kinds.reduce((a, b) => b.n > a.n ? b : a);
+  const parts = [`${S.latest ? '截至 ' + S.latest + ' ' : ''}共 ${S.total} 件，以${top.label}為主（${Math.round(top.n * 100 / S.total)}%）`];
+  if(S.dists.length) parts.push(`最集中在${S.dists[0].label}（${S.dists[0].n} 件）`);
+  if(S.roads.length) parts.push(`熱點路段為${S.roads[0].label}（${S.roads[0].n} 件）`);
+  const tn = trendNote(S);
+  return parts.join('；') + '。' + (tn ? tn + '。' : '');
+}
+
+// 災害模式各廠所頁首小計:「32 件｜修漏 20・供水 8・水質 4｜最多:汐止區　大同路二段 7 件」
+function unitSubtotalLine(rows){
+  const S = computeSummary(rows);
+  const kinds = SVC_STYLES.map(s => ({ label: s.label, n: S.svcTotals[s.key] })).concat([{ label: '其他', n: S.svcTotals.other }]).filter(k => k.n);
+  let t = `${S.total} 件｜${kinds.map(k => `${k.label} ${k.n}`).join('・')}`;
+  if(S.dists.length) t += `｜最多：${S.dists[0].label} ${S.dists[0].n} 件`;
+  if(S.roads.length) t += `；${S.roads[0].label} ${S.roads[0].n} 件`;
+  return t;
+}
+
+// 畫一頁戰情摘要(呼叫前 doc 應在要畫的那一頁;用到 autoTable 與已註冊的 NotoSansTC)
+function drawPdfSummary(doc, S, dateStr, modeLabel){
+  const W = doc.internal.pageSize.width, L = 6, CW = W - 12;
+  const font = (style, size, rgb) => { doc.setFont('NotoSansTC', style); doc.setFontSize(size); doc.setTextColor(...rgb); };
+
+  // 標題帶
+  doc.setFillColor(26, 58, 92); doc.rect(L, 6, CW, 9, 'F');
+  font('bold', 10, [255, 255, 255]); doc.text('戰情摘要', L + 3, 12);
+  font('normal', 7, [200, 220, 255]); doc.text(`${modeLabel}　${dateStr}`, W - L - 3, 12, { align: 'right' });
+
+  // 一句話結論
+  font('bold', 10.5, [26, 42, 58]);   // 先設字型再量寬,換行才準
+  const lines = doc.splitTextToSize(leadSentence(S), CW - 8);
+  const boxH = 6 + lines.length * 5.6;
+  doc.setFillColor(254, 249, 231); doc.setDrawColor(245, 158, 11); doc.setLineWidth(0.4);
+  doc.rect(L, 19, CW, boxH, 'FD');
+  font('bold', 10.5, [26, 42, 58]); doc.text(lines, L + 4, 25.5);
+  let y = 19 + boxH + 4;
+
+  // 四個大數字:總件數 + 各類別(類別不足四個時留空,有「其他」時併入第四格說明)
+  const cards = [{ label: '總件數', n: S.total, rgb: [26, 58, 92] }]
+    .concat(SVC_STYLES.map(s => ({ label: s.label, n: S.svcTotals[s.key], rgb: hexToRgb(s.color) })));
+  if(S.hasOther) cards.push({ label: '其他', n: S.svcTotals.other, rgb: [90, 100, 110] });
+  const cw = (CW - 3 * (cards.length - 1)) / cards.length;
+  cards.forEach((c, i) => {
+    const x = L + i * (cw + 3);
+    doc.setFillColor(244, 247, 251); doc.setDrawColor(200, 214, 229); doc.setLineWidth(0.2);
+    doc.rect(x, y, cw, 19, 'FD');
+    font('bold', 20, c.rgb); doc.text(String(c.n), x + cw / 2, y + 11.5, { align: 'center' });
+    font('normal', 7.5, [90, 100, 110]); doc.text(c.label, x + cw / 2, y + 16.5, { align: 'center' });
+  });
+  y += 19 + 5;
+
+  // 案件湧入趨勢(長條圖):最高的一根以紅色標示
+  if(S.trend){
+    const items = S.trend.items, max = Math.max(...items.map(i => i.n), 1);
+    font('bold', 8.5, [26, 58, 92]);
+    doc.text(`案件湧入趨勢（每${S.trend.unit === 'hour' ? '小時' : '天'}）`, L, y + 3);
+    font('normal', 7, [90, 100, 110]);
+    const tn = trendNote(S);
+    if(tn) doc.text(tn, W - L, y + 3, { align: 'right' });
+    const cx = L + 6, cy = y + 7, cwid = CW - 6, ch = 36;
+    doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.15);
+    doc.line(cx, cy + ch, cx + cwid, cy + ch);
+    font('normal', 5.5, [120, 130, 140]);
+    doc.text(String(max), cx - 1.5, cy + 2, { align: 'right' });
+    doc.text('0', cx - 1.5, cy + ch, { align: 'right' });
+    const slot = cwid / items.length, bw = Math.min(slot * 0.7, 9);
+    const step = Math.ceil(items.length / 14);   // 標籤太密時隔幾根標一次
+    items.forEach((it, i) => {
+      const h = it.n ? Math.max(0.6, ch * it.n / max) : 0;
+      const x = cx + i * slot + (slot - bw) / 2;
+      const hot = it.n === max && max > 0;
+      doc.setFillColor(...(hot ? [220, 38, 38] : [37, 99, 235]));
+      if(h) doc.rect(x, cy + ch - h, bw, h, 'F');
+      if(it.n && (items.length <= 24 || hot)){ font('bold', 5.5, hot ? [220, 38, 38] : [60, 70, 85]); doc.text(String(it.n), x + bw / 2, cy + ch - h - 0.8, { align: 'center' }); }
+      if(i % step === 0 || i === items.length - 1){ font('normal', 5.5, [90, 100, 110]); doc.text(it.label, x + bw / 2, cy + ch + 3.5, { align: 'center' }); }
+    });
+    y = cy + ch + 8;
+  }
+
+  // 廠所 × 案件類別
+  const cols = SVC_STYLES.map(s => ({ key: s.key, label: s.label }));
+  if(S.hasOther) cols.push({ key: 'other', label: '其他' });
+  const cell = n => n ? String(n) : '·';
+  const tbl = {
+    styles: { font: 'NotoSansTC', fontStyle: 'normal', fontSize: 7.5, cellPadding: 1.3, lineColor: [200, 214, 229], lineWidth: 0.2, textColor: [26, 42, 58] },
+    headStyles: { fillColor: [26, 58, 92], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+    theme: 'grid',
+  };
+  doc.autoTable(Object.assign({}, tbl, {
+    startY: y, margin: { left: L, right: L },
+    head: [['廠所', ...cols.map(c => c.label), '合計']],
+    body: [...S.unitRows.map(r => [r.unit, ...cols.map(c => cell(r.counts[c.key])), String(r.total)]),
+           ['合計', ...cols.map(c => cell(S.svcTotals[c.key])), String(S.total)]],
+    columnStyles: Object.fromEntries([...cols.map((_, i) => [i + 1, { halign: 'center' }]), [cols.length + 1, { halign: 'center', fontStyle: 'bold' }]]),
+    didParseCell(d){ if(d.section === 'body' && d.row.index === S.unitRows.length){ d.cell.styles.fontStyle = 'bold'; d.cell.styles.fillColor = [232, 240, 250]; } },
+  }));
+  y = doc.lastAutoTable.finalY + 5;
+
+  // 行政區前 5 / 路段前 5(左右並排)
+  const half = (CW - 4) / 2;
+  const pct = n => Math.round(n * 100 / S.total) + '%';
+  doc.autoTable(Object.assign({}, tbl, {
+    startY: y, margin: { left: L, right: W - L - half },
+    head: [['行政區 前 5', '件數', '佔比']],
+    body: S.dists.slice(0, 5).map(d => [d.label, String(d.n), pct(d.n)]),
+    columnStyles: { 1: { halign: 'center', cellWidth: 14 }, 2: { halign: 'center', cellWidth: 14 } },
+  }));
+  const yA = doc.lastAutoTable.finalY;
+  doc.autoTable(Object.assign({}, tbl, {
+    startY: y, margin: { left: L + half + 4, right: L },
+    head: [['路段 前 5（同路段 2 件以上）', '件數']],
+    body: S.roads.length ? S.roads.slice(0, 5).map(r => [r.label, String(r.n)]) : [['（無）', '']],
+    columnStyles: { 1: { halign: 'center', cellWidth: 14 } },
+  }));
+  const yB = doc.lastAutoTable.finalY;
+  font('normal', 6.5, [120, 130, 140]);
+  doc.text('統計依本次匯出範圍計算；路段由地址判讀，無法判讀者不列入。明細自下一頁起。', L, Math.max(yA, yB) + 5);
+}
+
+</script>
 <script>/* js/render.js */
 /* ═══════════════════════════════════════════════════════════
  * js/render.js — 畫面繪製:分頁、網頁表格、圖例、狀態列
@@ -1816,6 +2140,7 @@ function renderFiltered(){
   // 不再用「暫時覆寫 filteredRows 再還原」的方式各自為政。
   const rows = getShiftFilteredRows(filteredRows);
   refreshSummary(rows);   // 統計摘要(收合時不計算)
+  refreshDashboard(rows); // 災情看板(未開啟時不做事;外掛見 js/dashboard.js)
   if(!rows.length){
     pg.innerHTML='<div style="text-align:center;padding:40px;color:#888">無資料</div>';
     document.getElementById('pagerBar').classList.remove('show');
@@ -2109,6 +2434,8 @@ async function exportPDF(){
   const now = new Date();
   const dateStr = `${now.getMonth()+1}/${now.getDate()}`;
   const total = totalChunks.length;
+  // 選填:戰情摘要首頁(+災害模式各所頁首小計);未勾選時 PDF 與原本完全相同
+  const withSummary = document.getElementById('chkPdfSummary').checked;
 
   const { jsPDF } = window.jspdf;
 
@@ -2128,6 +2455,10 @@ async function exportPDF(){
 
     // 表頭與欄寬(mm,A4 直式可用寬約 198mm、margin 各 6mm)來自 COLUMNS
     const A4_W = doc.internal.pageSize.width;
+    if(withSummary){
+      setProgress(10, '產生戰情摘要…');
+      drawPdfSummary(doc, computeSummary(getShiftFilteredRows(filteredRows)), dateStr, disasterMode ? '災害模式' : '平常模式');
+    }
 
     // 共用的 autoTable 設定工廠:styles / headStyles / columnStyles(含特調欄寬)
     // 平常模式與災害模式完全共用,只有 body、染色規則、startY、頂部留白與頁首重繪不同。
@@ -2184,7 +2515,7 @@ async function exportPDF(){
         setProgress(Math.round(15 + (gi/gtotal)*75), `產生 ${unit}（${gi+1}/${gtotal} 個廠所）…`);
         await tick();
 
-        if(gi > 0) doc.addPage();
+        if(gi > 0 || withSummary) doc.addPage();
 
         // 該廠所內出現的行政區(依出現順序),放進頁首帶狀列當小提示
         const distsHere = [];
@@ -2192,9 +2523,11 @@ async function exportPDF(){
         for(const r of rows){ const k=distKey(r); if(!seen.has(k)){seen.add(k);distsHere.push(k);} }
 
         // 頁首帶狀列的繪製:封裝起來,讓續表(同廠所跨頁)時也能在每頁頂端重印
+        const bandH = withSummary ? 12 : 7;          // 勾選摘要時,帶狀列多一行該廠所小計
+        const subLine = withSummary ? unitSubtotalLine(rows) : '';
         const drawUnitBand = () => {
           doc.setFillColor(26,58,92);
-          doc.rect(6, 6, A4_W-12, 7, 'F');
+          doc.rect(6, 6, A4_W-12, bandH, 'F');
           doc.setFont('NotoSansTC','bold');
           doc.setFontSize(8);
           doc.setTextColor(255,255,255);
@@ -2203,11 +2536,16 @@ async function exportPDF(){
           doc.setFontSize(7);
           doc.setTextColor(200,220,255);
           doc.text(`行政區 ${distsHere.length} 區　${dateStr}`, A4_W-9, 11.5, {align:'right'});
+          if(subLine){
+            doc.setFontSize(7.5);
+            doc.setTextColor(255,236,170);
+            doc.text(subLine, 9, 16.5);
+          }
         };
 
         const opts = makeTableOpts(rows, rowFill);
-        opts.startY = 15;
-        opts.margin = { left:6, right:6, top:15 };   // top:15 讓續表頁也在帶狀列下方開始
+        opts.startY = 8 + bandH;
+        opts.margin = { left:6, right:6, top:8 + bandH };   // top:15 讓續表頁也在帶狀列下方開始
         opts.didDrawPage = drawUnitBand;             // 每一頁(含續表)頂端重印廠所帶狀列
         opts.rowPageBreak = 'avoid';                 // 整列不跨頁:一件案件的資料不會被分頁線切成兩半
         doc.autoTable(opts);
@@ -2231,7 +2569,7 @@ async function exportPDF(){
       setProgress(pct, `產生第 ${ci+1} / ${total} 頁…`);
       await tick();
 
-      if(ci > 0) doc.addPage();
+      if(ci > 0 || withSummary) doc.addPage();
 
       // 頁面標題列（A4_W 已於 try 區塊頂端宣告）
       doc.setFillColor(26,58,92);
@@ -2517,6 +2855,362 @@ function exportExcel(){
     alert('Excel 匯出失敗：' + err.message);
     console.error(err);
   }
+}
+
+</script>
+<script>/* js/dashboard.js */
+/* ═══════════════════════════════════════════════════════════
+ * js/dashboard.js — 災情看板(外掛):全螢幕互動式視覺化,可另開視窗投影
+ * 入口:openDashboard()(工具列「📊 災情看板」);資料來源與匯出相同(getShiftFilteredRows(filteredRows))。
+ * 互動核心 = 交叉篩選:點 KPI/廠所/行政區/路段、拖曳時間軸、點熱力圖格子、搜尋,所有圖表與清單同步。
+ *   每張圖用「排除自己這一維的其他篩選」計數(rowsFor),所以被選取的項目旁邊仍看得到其他項目的量。
+ * 純 DOM/CSS 自繪(無外部函式庫);樣式在 css/dashboard.css(.dash 範圍內);不顯示姓名/電話。
+ * 外掛性質:只讀取全域資料,唯一的耦合是 renderFiltered() 內一行 refreshDashboard(rows)。
+ * (classic script:所有檔案共用全域作用域,載入順序見 index.html;符號索引:node tools/symbols.js)
+ * ═══════════════════════════════════════════════════════════ */
+
+const DASH = { open: false, win: null, root: null, X: [], S: null, trend: null, F: null, playing: false, timer: 0,
+               listN: 30, last: {}, first: true, theme: 'dark', drag: null, qTimer: 0, tap: null, lastScroll: -1e9 };
+const DASH_KINDS = [...SVC_STYLES.map(s => ({ key: s.key, label: s.label })), { key: 'other', label: '其他' }];
+const dashFresh = () => ({ unit: new Set(), svc: new Set(), dk: new Set(), rk: new Set(), t: null, q: '' });
+const dashWin = () => DASH.win || window;
+
+// ── 資料:把每列預先算好維度鍵(廠所/類別/行政區/路段/時間桶/搜尋字串) ──
+function dashBuild(rows){
+  const S = computeSummary(rows), trend = S.trend;
+  const idx = new Map(trend ? trend.items.map((it, i) => [it.label, i]) : []);
+  DASH.S = S; DASH.trend = trend;
+  DASH.X = rows.map(r => {
+    const dk = (r.city || '') + '|' + distKey(r), dl = (S.multiCity ? (r.city || '') : '') + distKey(r);
+    const road = roadOf(r.addr), m = String(r.time || '').match(/^(\d+\/\d+)\s+(\d+):/);
+    let b = -1;
+    if(m && trend){ const v = idx.get(trend.unit === 'hour' ? m[1] + ' ' + pad(+m[2]) : m[1]); if(v !== undefined) b = v; }
+    return { r, k: (svcStyle(r.svc) || { key: 'other' }).key, unit: r.unit || '（未分類）', dk, dl, b,
+             rk: road ? dk + '|' + road : null, rl: road ? dl + ' ' + road : null,
+             q: [r.rec, r.addr, r.desc, r.dist, r.unit, r.svc, r.detail].join(' ').toLowerCase() };
+  });
+  // 資料更新後,丟掉已不存在的篩選值
+  const F = DASH.F, has = f => new Set(DASH.X.map(x => x[f]));
+  for(const [f, field] of [['unit', 'unit'], ['dk', 'dk'], ['rk', 'rk']]){ const h = has(field); F[f].forEach(v => { if(!h.has(v)) F[f].delete(v); }); }
+  if(F.t && (!trend || F.t[1] >= trend.items.length)) F.t = null;
+}
+
+// 套用篩選;sk = 這張圖要「排除」的維度
+function rowsFor(...sk){
+  const F = DASH.F, on = n => !sk.includes(n);
+  return DASH.X.filter(x =>
+    (!F.unit.size || !on('unit') || F.unit.has(x.unit)) &&
+    (!F.svc.size  || !on('svc')  || F.svc.has(x.k)) &&
+    (!F.dk.size   || !on('dk')   || F.dk.has(x.dk)) &&
+    (!F.rk.size   || !on('rk')   || (x.rk && F.rk.has(x.rk))) &&
+    (!F.t         || !on('t')    || (x.b >= F.t[0] && x.b <= F.t[1])) &&
+    (!F.q         || !on('q')    || x.q.includes(F.q)));
+}
+function tally(xs, keyOf, labelOf){
+  const m = new Map();
+  for(const x of xs){
+    const k = keyOf(x); if(k === null) continue;
+    if(!m.has(k)) m.set(k, { key: k, label: labelOf(x), n: 0, by: {} });
+    const o = m.get(k); o.n++; o.by[x.k] = (o.by[x.k] || 0) + 1;
+  }
+  return [...m.values()];
+}
+const dSegs = by => DASH_KINDS.filter(k => by[k.key]).map(k => `<b style="flex:${by[k.key]};background:var(--c-${k.key})"></b>`).join('');
+// 座標軸標籤密度:窄螢幕少標幾個,避免互相重疊
+const dStep = n => Math.ceil(n / (dashWin().innerWidth < 700 ? 4 : 8));
+const dSel = (f, v) => DASH.F[f].has(v);
+const dDim = (f, v) => DASH.F[f].size && !DASH.F[f].has(v) ? ' dim' : '';
+
+// ── 各區塊 ──
+function dKpiHtml(){
+  const all = rowsFor(), bySvc = rowsFor('svc'), tl = rowsFor('t'), S = DASH.S;
+  const cnt = {}; bySvc.forEach(x => cnt[x.k] = (cnt[x.k] || 0) + 1);
+  const cards = [`<div class="kpi kpi-total"><span class="kn" data-k="total" data-to="${all.length}">${DASH.last.total || 0}</span><label>目前顯示件數</label></div>`];
+  for(const k of DASH_KINDS){
+    if(k.key === 'other' && !S.hasOther) continue;
+    cards.push(`<button class="kpi kpi-svc${dSel('svc', k.key) ? ' sel' : ''}${dDim('svc', k.key)}" data-f="svc" data-v="${k.key}" style="--kc:var(--c-${k.key})">` +
+      `<span class="kn" data-k="${k.key}" data-to="${cnt[k.key] || 0}">${DASH.last[k.key] || 0}</span><label>${k.label}</label></button>`);
+  }
+  const ti = DASH.trend ? DASH.trend.items : [];
+  if(ti.length >= 2){
+    const c = ti.map((_, i) => tl.filter(x => x.b === i).length), a = c[c.length - 1], p = c[c.length - 2];
+    const mood = a > p ? 'up' : a < p ? 'down' : 'flat', arrow = a > p ? '▲' : a < p ? '▼' : '＝';
+    const u = DASH.trend.unit === 'hour' ? '小時' : '天';
+    cards.push(`<div class="kpi kpi-trend ${mood}"><span class="kn2">${arrow} ${a}<small>件</small></span><label>最新一${u}（${e(ti[ti.length - 1].label)}${u === '小時' ? '時' : ''}）・前一${u} ${p}</label></div>`);
+  }
+  const top = tally(rowsFor('dk'), x => x.dk, x => x.dl).sort((x, y) => y.n - x.n)[0];
+  if(top) cards.push(`<div class="kpi kpi-hot"><span class="kn2 hotn">${e(top.label)}</span><label>最集中行政區・${top.n} 件</label></div>`);
+  return cards.join('');
+}
+
+function dTimeHtml(){
+  const ti = DASH.trend ? DASH.trend.items : [];
+  if(!ti.length) return '<div class="d-empty">資料沒有可判讀的申報時間</div>';
+  const xs = rowsFor('t'), n = ti.length, F = DASH.F;
+  const per = ti.map(() => ({ n: 0, by: {} }));
+  xs.forEach(x => { if(x.b >= 0){ const o = per[x.b]; o.n++; o.by[x.k] = (o.by[x.k] || 0) + 1; } });
+  const max = Math.max(...per.map(o => o.n), 1), step = dStep(n), u = DASH.trend.unit === 'hour' ? '時' : '';
+  const cols = per.map((o, i) => {
+    const off = F.t && (i < F.t[0] || i > F.t[1]);
+    return `<div class="tc${off ? ' off' : ''}${o.n === max && o.n ? ' peak' : ''}" data-i="${i}" title="${e(ti[i].label)}${u}：${o.n} 件">` +
+           `<div class="tcs" style="height:${o.n / max * 100}%">${dSegs(o.by)}</div></div>`;
+  }).join('');
+  const axis = ti.map((it, i) => `<span>${i % step === 0 ? e(it.label) + u : ''}</span>`).join('');
+  return `<div class="tl" style="--n:${n}">${cols}</div><div class="tax" style="--n:${n}">${axis}</div>`;
+}
+function dTimeLabel(a, b){
+  const ti = DASH.trend.items, u = DASH.trend.unit === 'hour' ? '時' : '';
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  return lo === hi ? ti[lo].label + u : `${ti[lo].label}${u} – ${ti[hi].label}${u}`;
+}
+
+function dBars(list, f, max, fmt){
+  if(!list.length) return '<div class="d-empty">無資料</div>';
+  return list.map(o => `<div class="hb${dSel(f, o.key) ? ' sel' : ''}${dDim(f, o.key)}" data-f="${f}" data-v="${e(o.key)}" title="${e(o.label)}：${o.n} 件">` +
+    `<span class="hb-l">${e(fmt ? fmt(o) : o.label)}</span><span class="hb-t"><i style="width:${Math.max(3, o.n / max * 100)}%">${dSegs(o.by)}</i></span><span class="hb-n">${o.n}</span></div>`).join('');
+}
+function dUnitHtml(){
+  const t = tally(rowsFor('unit'), x => x.unit, x => x.unit), by = new Map(t.map(o => [o.key, o]));
+  const list = orderUnits(by.keys()).map(u => by.get(u));
+  return dBars(list, 'unit', Math.max(...list.map(o => o.n), 1));
+}
+function dDistHtml(){
+  const t = tally(rowsFor('dk'), x => x.dk, x => x.dl).sort((a, b) => b.n - a.n || a.label.localeCompare(b.label, 'zh-Hant'));
+  const keep = new Set(t.slice(0, 10).map(o => o.key)); DASH.F.dk.forEach(k => keep.add(k));
+  const list = t.filter(o => keep.has(o.key));
+  return dBars(list, 'dk', Math.max(...list.map(o => o.n), 1)) + (t.length > list.length ? `<div class="d-note">另有 ${t.length - list.length} 個行政區未列出</div>` : '');
+}
+function dRoadHtml(){
+  const t = tally(rowsFor('rk'), x => x.rk, x => x.rl).filter(o => o.n >= 2 || DASH.F.rk.has(o.key)).sort((a, b) => b.n - a.n || a.label.localeCompare(b.label, 'zh-Hant'));
+  const list = t.slice(0, 8);
+  return list.length ? dBars(list, 'rk', list[0].n) : '<div class="d-empty">目前沒有出現 2 件以上的同一路段</div>';
+}
+
+// 行政區 × 時間 熱力圖:排除行政區與時間篩選,才看得到「災情怎麼擴散」
+function dHeatHtml(){
+  const ti = DASH.trend ? DASH.trend.items : [];
+  if(!ti.length) return '<div class="d-empty">資料沒有可判讀的申報時間</div>';
+  const xs = rowsFor('dk', 't'), t = tally(xs, x => x.dk, x => x.dl).sort((a, b) => b.n - a.n).slice(0, 8), n = ti.length;
+  const cell = new Map(); let max = 1;
+  xs.forEach(x => { if(x.b < 0) return; const k = x.dk + '#' + x.b, v = (cell.get(k) || 0) + 1; cell.set(k, v); if(v > max) max = v; });
+  const step = dStep(n), F = DASH.F, showN = n <= 14;
+  let h = `<div class="hm" style="--n:${n}"><span></span>${ti.map((it, i) => `<span class="hm-x">${i % step === 0 ? e(it.label) : ''}</span>`).join('')}`;
+  for(const o of t){
+    h += `<span class="hm-y${dSel('dk', o.key) ? ' sel' : ''}" data-f="dk" data-v="${e(o.key)}">${e(o.label)}</span>`;
+    for(let i = 0; i < n; i++){
+      const v = cell.get(o.key + '#' + i) || 0;
+      const on = (!F.dk.size || F.dk.has(o.key)) && (!F.t || (i >= F.t[0] && i <= F.t[1]));
+      h += `<i class="hm-c${v ? '' : ' z'}${on ? '' : ' off'}" data-heat="${e(o.key)}|${i}" style="--a:${v ? (0.18 + 0.82 * v / max).toFixed(2) : 0}" title="${e(o.label)} ${e(ti[i].label)}：${v} 件">${showN && v ? v : ''}</i>`;
+    }
+  }
+  return h + '</div>';
+}
+
+function dListHtml(){
+  const xs = rowsFor().slice().sort((a, b) => b.r.timeVal - a.r.timeVal);
+  if(!xs.length) return '<div class="d-empty">沒有符合條件的案件</div>';
+  const kl = Object.fromEntries(DASH_KINDS.map(k => [k.key, k.label]));
+  const rows = xs.slice(0, DASH.listN).map(x => `<div class="li" style="--kc:var(--c-${x.k})"><div class="li-a"><b>${e(x.r.time)}</b><span class="li-k">${e(kl[x.k])}${x.r.detail ? '・' + e(x.r.detail) : ''}</span>` +
+    `<span class="li-u">${e(x.unit)}</span></div><div class="li-b">${e(x.dl)}${e(x.r.addr)}</div>${x.r.desc ? `<div class="li-c">${e(x.r.desc)}</div>` : ''}<div class="li-r">${e(x.r.rec)}</div></div>`).join('');
+  const more = xs.length > DASH.listN ? `<button class="d-more" data-act="more">再顯示 30 筆（還有 ${xs.length - DASH.listN} 筆）</button>` : '';
+  return `<div class="d-count">共 ${xs.length} 筆，依申報時間新到舊</div>${rows}${more}`;
+}
+
+function dChipsHtml(){
+  const F = DASH.F, ch = [], kl = Object.fromEntries(DASH_KINDS.map(k => [k.key, k.label]));
+  const name = (f, v) => { const x = DASH.X.find(y => y[f] === v); return x ? (f === 'dk' ? x.dl : f === 'rk' ? x.rl : v) : v; };
+  F.unit.forEach(v => ch.push(['unit', v, v])); F.svc.forEach(v => ch.push(['svc', v, kl[v]]));
+  F.dk.forEach(v => ch.push(['dk', v, name('dk', v)])); F.rk.forEach(v => ch.push(['rk', v, name('rk', v)]));
+  if(F.t) ch.push(['t', '', dTimeLabel(F.t[0], F.t[1])]);
+  if(F.q) ch.push(['q', '', '搜尋：' + F.q]);
+  if(!ch.length) return '<span class="d-hint">點任何圖表可篩選；拖曳時間軸可選取時段</span>';
+  return ch.map(c => `<button class="chip" data-x="${c[0]}" data-v="${e(c[1])}">${e(c[2])} ✕</button>`).join('') + '<button class="chip chip-clear" data-act="clear">清除全部</button>';
+}
+
+// ── 繪製 ──
+function dashRender(){
+  const R = DASH.root; if(!R) return;
+  const set = (id, html) => { R.querySelector(id).innerHTML = html; };
+  set('#dChips', dChipsHtml()); set('#dKpi', dKpiHtml()); set('#dTime', dTimeHtml());
+  set('#dUnit', dUnitHtml()); set('#dDist', dDistHtml()); set('#dRoad', dRoadHtml()); set('#dHeat', dHeatHtml()); set('#dList', dListHtml());
+  const F = DASH.F, S = DASH.S;
+  R.querySelector('#dSub').textContent = `資料 ${S.total} 件${S.latest ? '・最新 ' + S.latest : ''}・${disasterMode ? '災害模式' : '平常模式'}`;
+  R.querySelector('#dSel').textContent = F.t ? dTimeLabel(F.t[0], F.t[1]) : '全部時段';
+  R.querySelector('#dPlay').textContent = DASH.playing ? '⏸ 暫停' : '▶ 播放';
+  R.classList.toggle('first', DASH.first); DASH.first = false;
+  dashCountUp();
+}
+// KPI 數字跳動:從上次的值滾到新值
+function dashCountUp(){
+  const w = dashWin(), calm = w.matchMedia && w.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  DASH.root.querySelectorAll('.kn').forEach(el => {
+    const k = el.dataset.k, to = +el.dataset.to, from = DASH.last[k] || 0;
+    DASH.last[k] = to;
+    if(calm || from === to){ el.textContent = to; return; }
+    const t0 = w.performance.now(), dur = 520;
+    const tick = now => { const p = Math.min(1, (now - t0) / dur); el.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3))); if(p < 1) w.requestAnimationFrame(tick); };
+    w.requestAnimationFrame(tick);
+  });
+}
+
+// ── 互動 ──
+function dashToggle(f, v){
+  const s = DASH.F[f]; if(s.has(v)) s.delete(v); else s.add(v);
+  dashRender();
+}
+function dashStop(){ if(DASH.timer){ dashWin().clearInterval(DASH.timer); DASH.timer = 0; } DASH.playing = false; }
+function dashPlay(){
+  if(DASH.playing){ dashStop(); dashRender(); return; }
+  const n = DASH.trend ? DASH.trend.items.length : 0; if(n < 2) return;
+  let i = 0; DASH.F.t = [0, 0]; DASH.playing = true; dashRender();
+  DASH.timer = dashWin().setInterval(() => {
+    i++;
+    if(i >= n){ dashStop(); DASH.F.t = null; dashRender(); return; }   // 播完回到「全部時段」
+    DASH.F.t = [0, i]; dashRender();
+  }, Math.max(140, Math.min(700, 12000 / n)));
+}
+function dashClear(){ DASH.F = dashFresh(); DASH.root.querySelector('#dQ').value = ''; dashStop(); DASH.listN = 30; dashRender(); }
+
+// 觸控防誤點:捲動(含慣性捲動中點一下止滑)、手指移動超過 8px,都不算「點選」。
+function dashTapOk(ev){
+  const d = DASH.tap; if(!d) return true;
+  const moved = Math.hypot(ev.clientX - d.x, ev.clientY - d.y) > 8;
+  return !(d.rolling || moved || Math.abs(DASH.root.scrollTop - d.st) > 2);
+}
+
+function dashClick(ev){
+  const ok = dashTapOk(ev); DASH.tap = null;
+  if(!ok) return;
+  const t = ev.target.closest('[data-f],[data-heat],[data-x],[data-act]'); if(!t) return;
+  if(t.dataset.f){ DASH.listN = 30; dashToggle(t.dataset.f, t.dataset.v); return; }
+  if(t.dataset.heat){
+    const [dk, b] = [t.dataset.heat.split('|').slice(0, -1).join('|'), +t.dataset.heat.split('|').pop()];
+    dashStop(); DASH.F.dk = new Set([dk]); DASH.F.t = [b, b]; DASH.listN = 30; dashRender(); return;
+  }
+  if(t.dataset.x){
+    const x = t.dataset.x; dashStop();
+    if(x === 't') DASH.F.t = null; else if(x === 'q'){ DASH.F.q = ''; DASH.root.querySelector('#dQ').value = ''; } else DASH.F[x].delete(t.dataset.v);
+    dashRender(); return;
+  }
+  const a = t.dataset.act;
+  if(a === 'clear') dashClear();
+  else if(a === 'more'){ DASH.listN += 30; DASH.root.querySelector('#dList').innerHTML = dListHtml(); }
+  else if(a === 'play') dashPlay();
+  else if(a === 'theme') dashTheme();
+  else if(a === 'pop') dashPopOut();
+  else if(a === 'dock') dashDock();
+  else if(a === 'close') dashClose();
+}
+
+// 時間軸拖曳選取(pointer events:滑鼠與觸控共用);拖曳中只改外觀,放開才套用篩選
+function dashPointer(ev){
+  DASH.tap = { x: ev.clientX, y: ev.clientY, st: DASH.root.scrollTop, rolling: ev.pointerType === 'touch' && dashWin().performance.now() - DASH.lastScroll < 160 };   // 只有觸控才有「慣性捲動中點一下止滑」
+  const tl = ev.target.closest('.tl'); if(!tl || !DASH.trend) return;
+  const n = DASH.trend.items.length, rect = tl.getBoundingClientRect();
+  const at = e2 => Math.max(0, Math.min(n - 1, Math.floor((e2.clientX - rect.left) / rect.width * n)));
+  dashStop();
+  const a = at(ev); DASH.drag = { a, b: a, moved: false };
+  try { tl.setPointerCapture(ev.pointerId); } catch(_) {}
+  const paint = () => { const lo = Math.min(DASH.drag.a, DASH.drag.b), hi = Math.max(DASH.drag.a, DASH.drag.b);
+    tl.querySelectorAll('.tc').forEach((c, i) => c.classList.toggle('off', i < lo || i > hi));
+    DASH.root.querySelector('#dSel').textContent = dTimeLabel(lo, hi); };
+  const move = e2 => { const b = at(e2); if(b !== DASH.drag.b){ DASH.drag.b = b; DASH.drag.moved = true; paint(); } };
+  const end = () => { tl.removeEventListener('pointermove', move); tl.removeEventListener('pointerup', up); tl.removeEventListener('pointercancel', cancel); };
+  // 瀏覽器接手垂直捲動(pointercancel)=使用者只是在滑頁面:放棄選取、恢復原狀,不套用篩選
+  const cancel = () => { end(); DASH.drag = null; dashRender(); };
+  const up = () => {
+    end();
+    const d = DASH.drag; DASH.drag = null; if(!d) return;
+    if(DASH.tap && DASH.tap.rolling && !d.moved){ dashRender(); return; }   // 止住慣性捲動的那一下不算點選
+    const lo = Math.min(d.a, d.b), hi = Math.max(d.a, d.b), cur = DASH.F.t;
+    DASH.F.t = (!d.moved && cur && cur[0] === lo && cur[1] === hi) ? null : [lo, hi];   // 單點同一格再點一次=取消
+    DASH.listN = 30; dashRender();
+  };
+  tl.addEventListener('pointermove', move); tl.addEventListener('pointerup', up); tl.addEventListener('pointercancel', cancel);
+  paint();
+}
+
+function dashTheme(){
+  DASH.theme = DASH.theme === 'dark' ? 'light' : 'dark';
+  DASH.root.classList.toggle('light', DASH.theme === 'light');
+  try { localStorage.setItem('wurt.dashTheme', DASH.theme); } catch(_) {}
+}
+
+// ── 開關與另開視窗 ──
+const DASH_SKELETON = `
+<header class="d-head">
+  <div class="d-title"><h2>📊 災情看板</h2><span id="dSub"></span></div>
+  <div class="d-tools">
+    <button data-act="theme" title="切換深色／淺色">🌗</button>
+    <button data-act="pop" class="d-pop">⧉ 另開視窗</button><button data-act="dock" class="d-dock">↩ 收回</button>
+    <button data-act="close" title="關閉（Esc）">✕ 關閉</button>
+  </div>
+</header>
+<div class="d-chips" id="dChips"></div>
+<main class="d-body">
+  <section id="dKpi" class="kpis"></section>
+  <section class="card wide"><h3>案件湧入趨勢<small>拖曳選取時段，或點單一時段</small><span class="sp"></span><span class="d-sel" id="dSel"></span><button data-act="play" id="dPlay" class="d-btn">▶ 播放</button></h3><div id="dTime"></div></section>
+  <section class="card"><h3>廠所</h3><div id="dUnit"></div></section>
+  <section class="card"><h3>行政區</h3><div id="dDist"></div></section>
+  <section class="card"><h3>熱點路段<small>同路段 2 件以上</small></h3><div id="dRoad"></div></section>
+  <section class="card wide"><h3>行政區 × 時間<small>顏色越深案件越多；點格子可聚焦</small></h3><div id="dHeat"></div></section>
+  <section class="card wide"><h3>案件清單<span class="sp"></span><input id="dQ" type="search" placeholder="搜尋地址、描述、受理編號…" autocomplete="off"></h3><div id="dList"></div></section>
+</main>`;
+
+function openDashboard(){
+  document.getElementById('exportMenu').style.display = 'none';
+  if(DASH.open){ if(DASH.win) DASH.win.focus(); return; }
+  const rows = getShiftFilteredRows(filteredRows);
+  if(!rows.length){ alert('目前沒有資料，請先上傳並整理後再開啟災情看板。'); return; }
+  try { DASH.theme = localStorage.getItem('wurt.dashTheme') === 'light' ? 'light' : 'dark'; } catch(_) {}
+  DASH.F = dashFresh(); DASH.last = {}; DASH.listN = 30; DASH.first = true;
+  const R = DASH.root = document.createElement('div');
+  R.className = 'dash' + (DASH.theme === 'light' ? ' light' : ''); R.tabIndex = -1; R.innerHTML = DASH_SKELETON;
+  R.addEventListener('scroll', () => { DASH.lastScroll = dashWin().performance.now(); }, { passive: true });
+  R.addEventListener('click', dashClick);
+  R.addEventListener('pointerdown', dashPointer);
+  R.addEventListener('keydown', ev => { if(ev.key === 'Escape'){ ev.stopPropagation(); dashClose(); } });
+  R.querySelector('#dQ').addEventListener('input', ev => {
+    const w = dashWin(); w.clearTimeout(DASH.qTimer);
+    DASH.qTimer = w.setTimeout(() => { DASH.F.q = ev.target.value.trim().toLowerCase(); DASH.listN = 30; dashRender(); }, 150);
+  });
+  dashBuild(rows);
+  document.body.appendChild(R); document.body.style.overflow = 'hidden';
+  DASH.open = true; dashRender(); R.focus();
+}
+
+function dashClose(){
+  if(!DASH.open) return;
+  dashStop(); const w = DASH.win; DASH.win = null; DASH.open = false;
+  if(DASH.root.parentNode) DASH.root.parentNode.removeChild(DASH.root);
+  DASH.root = null; document.body.style.overflow = '';
+  if(w && !w.closed) w.close();
+}
+
+function dashPopOut(){
+  const w = window.open('', 'wurt_dash', 'width=1360,height=860');
+  if(!w){ alert('瀏覽器擋住了彈出視窗，請允許本頁的彈出視窗後再試一次。'); return; }
+  const d = w.document;
+  d.open(); d.write('<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>災情看板</title></head><body></body></html>'); d.close();
+  document.querySelectorAll('style, link[rel="stylesheet"]').forEach(el => { const c = el.cloneNode(true); if(el.tagName === 'LINK') c.href = el.href; d.head.appendChild(c); });
+  dashStop(); d.body.appendChild(DASH.root);
+  DASH.win = w; DASH.root.classList.add('popped'); document.body.style.overflow = '';
+  w.addEventListener('pagehide', () => { if(DASH.win === w){ DASH.win = null; dashClose(); } });
+  DASH.root.focus(); dashRender();
+}
+function dashDock(){
+  const w = DASH.win; if(!w) return;
+  DASH.win = null; dashStop();
+  document.body.appendChild(DASH.root); DASH.root.classList.remove('popped'); document.body.style.overflow = 'hidden';
+  if(!w.closed) w.close();
+  DASH.root.focus(); dashRender();
+}
+
+// 主畫面資料/篩選改變時由 renderFiltered() 呼叫:看板開著就即時更新
+function refreshDashboard(rows){
+  if(!DASH.open) return;
+  if(!rows.length){ dashClose(); return; }
+  dashBuild(rows); dashRender();
 }
 
 </script>
