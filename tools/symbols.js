@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const dir = path.resolve(__dirname, '..', 'js');
 const kw = (process.argv[2] || '').toLowerCase();
-const order = ['config', 'shared', 'parse', 'filter', 'actions', 'report', 'summary', 'render', 'export', 'excel'];  // 同 index.html 載入順序
+const order = ['config', 'shared', 'parse', 'filter', 'actions', 'report', 'summary', 'pdfsummary', 'render', 'export', 'excel', 'dashboard'];  // 同 index.html 載入順序
 const files = fs.readdirSync(dir).filter(f => f.endsWith('.js')).sort((a, b) => {
   const ia = order.indexOf(a.replace('.js', '')), ib = order.indexOf(b.replace('.js', ''));
   return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);

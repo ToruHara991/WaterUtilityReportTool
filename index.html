@@ -9,6 +9,7 @@
 <script src="jspdf.umd.min.js"></script>
 <script src="jspdf.plugin.autotable.min.js"></script>
 <link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/dashboard.css">
 </head>
 <body>
 
@@ -47,6 +48,7 @@
   <button class="btn btn-danger" onclick="reUpload()">📂 重新上傳</button>
   <div class="sep"></div>
   <button class="btn btn-gray" id="disasterBtn" onclick="toggleDisaster()">🚨 災害模式：關</button>
+  <button class="btn btn-gray" id="dashBtn" onclick="openDashboard()">📊 災情看板</button>
   <div class="sep"></div>
   <button class="btn btn-gray" id="filterBtn" onclick="toggleFilter()">▼ 篩選</button>
   <div class="sep"></div>
@@ -79,6 +81,10 @@
     <div onclick="exportPDF()" style="padding:9px 16px;font-size:.78rem;cursor:pointer;
       color:#1a2a3a;font-weight:700" onmouseenter="this.style.background='#e0f2fe'"
       onmouseleave="this.style.background=''">📑 匯出全部資料（PDF）</div>
+    <!-- PDF 選填項:預設不勾,點選時不關閉選單 -->
+    <div class="xl-opts" onclick="event.stopPropagation()">
+      <label><input type="checkbox" id="chkPdfSummary"> 加「戰情摘要」首頁（長官速覽）</label>
+    </div>
     <div style="margin:3px 10px;border-top:1px solid #e0e8f0"></div>
     <div onclick="exportExcel()" style="padding:9px 16px;font-size:.78rem;cursor:pointer;
       color:#1a2a3a;font-weight:700" onmouseenter="this.style.background='#e0f2fe'"
@@ -198,8 +204,10 @@
 <script src="js/actions.js"></script>
 <script src="js/report.js"></script>
 <script src="js/summary.js"></script>
+<script src="js/pdfsummary.js"></script>
 <script src="js/render.js"></script>
 <script src="js/export.js"></script>
 <script src="js/excel.js"></script>
+<script src="js/dashboard.js"></script>
 </body>
 </html>

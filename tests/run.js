@@ -566,6 +566,207 @@ const sel = (page, f, ...a) => page.evaluate(f, ...a);
     await o.ctx.close();
   }
 
+  // ═════ 3.7 PDF 戰情摘要首頁(選填) ═════
+  {
+    const o = await openPage();
+    await sel(o.page, a => __loadAoa(a), aoa);
+    await sel(o.page, () => applyAll());
+
+    // 趨勢與結論句(手算)
+    const T = await sel(o.page, () => {
+      const mk = (t, svc='修漏案件', dist='板橋區', addr='中山路二段1號') => ({ unit:'一區處', svc, city:'新北市', dist, addr, time:t, timeVal: timeVal(t) });
+      const S = computeSummary([mk('5/30 08:10'), mk('5/30 08:50'), mk('5/30 10:05'), mk('5/30 10:20'), mk('5/30 10:40', '水質案件')]);
+      const wide = computeSummary([mk('5/30 08:10'), mk('6/1 09:00')]);
+      return { S: { trend: S.trend, latest: S.latest }, lead: leadSentence(computeSummary([mk('5/30 08:10'), mk('5/30 08:50'), mk('5/30 10:05')])), note: trendNote(S),
+               wide: wide.trend.unit + ':' + wide.trend.items.map(i => i.label + '=' + i.n).join(','), empty: leadSentence(computeSummary([])) };
+    });
+    check('趨勢:每小時、補零(09 時為 0)', T.S.trend.unit === 'hour' && T.S.trend.items.map(i => i.label + '=' + i.n).join() === '5/30 08=2,5/30 09=0,5/30 10=3', JSON.stringify(T.S.trend));
+    check('趨勢:最晚時間', T.S.latest === '5/30 10:40', T.S.latest);
+    check('趨勢:文字(最新一小時 3 件、前一小時 0 件、增加)', T.note === '最新一小時（5/30 10時）3 件，前一小時 0 件，增加', T.note);
+    check('趨勢:跨度超過 36 小時改以「天」並補零', T.wide === 'day:5/30=1,5/31=0,6/1=1', T.wide);
+    check('結論句內容', T.lead.includes('共 3 件') && T.lead.includes('以修漏為主（100%）') && T.lead.includes('最集中在板橋區（3 件）') && T.lead.includes('熱點路段為板橋區 中山路二段（3 件）'), T.lead);
+    check('結論句:空資料', T.empty === '目前沒有案件資料。', T.empty);
+
+    // 預設不勾;記憶選擇
+    check('PDF 摘要選項預設不勾', await sel(o.page, () => document.getElementById('chkPdfSummary').checked === false));
+    await o.page.evaluate(() => { const c = document.getElementById('chkPdfSummary'); c.checked = true; c.dispatchEvent(new Event('change')); });
+    check('PDF 摘要選項會記住', await sel(o.page, () => localStorage.getItem('wurt.pdfSummary') === '1'));
+
+    for(const dis of [false, true]){
+      const tag = dis ? '災害模式' : '平常模式';
+      if(dis) await sel(o.page, () => toggleDisaster());
+      const r = await sel(o.page, () => __pdfRun());
+      const base0 = await sel(o.page, () => { const c = document.getElementById('chkPdfSummary'); c.checked = false; return 0; });
+      const r0 = await sel(o.page, () => __pdfRun());
+      await sel(o.page, () => { document.getElementById('chkPdfSummary').checked = true; });
+      check(`${tag}+摘要:PDF 產出`, !r.error && r.header.startsWith('%PDF'), r.error);
+      check(`${tag}+摘要:恰多一頁`, r.pages === r0.pages + 1, `${r.pages} vs ${r0.pages}`);
+      const t1 = r.log.texts.filter(t => t.pg === 1).map(t => t.t).join('\n');
+      check(`${tag}+摘要:第 1 頁是戰情摘要且含結論句`, t1.includes('戰情摘要') && t1.includes('以') && t1.includes('為主') && t1.includes('最集中在'), t1.slice(0, 80));
+      check(`${tag}+摘要:第 1 頁大數字總件數正確`, t1.split('\n').includes(String(await sel(o.page, () => getShiftFilteredRows(filteredRows).length))));
+      check(`${tag}+摘要:摘要表在明細表之前(廠所表、行政區表、路段表)`, r.log.tables[0].head[0][0] === '廠所' && r.log.tables[1].head[0][0] === '行政區 前 5' && r.log.tables[2].head[0][0].startsWith('路段 前 5'));
+      const detail = r.log.tables.filter(t => t.head[0][0] === '廠所別');
+      check(`${tag}+摘要:明細欄寬一字不動`, detail.length >= 1 && detail.every(t => JSON.stringify(t.colW) === JSON.stringify([11,16,14,15,14,42,8,8,28,9,14,14])), JSON.stringify(detail[0] && detail[0].colW));
+      const dRows = r.log.rows.filter(x => x.tbl >= 3);   // 前 3 個 table 是摘要頁的表
+      check(`${tag}+摘要:明細列數與不勾選時相同`, dRows.length === r0.log.rows.length, `${dRows.length} vs ${r0.log.rows.length}`);
+      check(`${tag}+摘要:明細全部在第 2 頁之後`, dRows.every(x => x.pg >= 2));
+      if(dis){
+        const subs = r.log.texts.filter(t => /^\d+ 件｜.*最多：/.test(t.t));
+        const units = await sel(o.page, () => { const m = new Map(); for(const x of getShiftFilteredRows(filteredRows)) m.set(x.unit, (m.get(x.unit) || 0) + 1); return [...m.values()].sort((a, b) => a - b).join(); });
+        check('災害+摘要:每個廠所頁首都有小計行(件數與廠所一致)', subs.length >= 1 && subs.map(t => parseInt(t.t)).sort((a, b) => a - b).join() === units, subs.map(t => t.t).join(' / '));
+        check('災害+摘要:不勾選時沒有小計行', !r0.log.texts.some(t => /件｜.*最多：/.test(t.t)));
+      }
+    }
+    check('PDF 摘要:無對話框/錯誤', o.dialogs.length === 0 && o.errors.length === 0, o.dialogs.concat(o.errors).join('|'));
+    await o.ctx.close();
+  }
+
+  // ═════ 3.8 災情看板(外掛) ═════
+  {
+    const o = await openPage();
+    await sel(o.page, a => __loadAoa(a), aoa);
+    await sel(o.page, () => { toggleDisaster(); applyAll(); });
+    const st = () => sel(o.page, () => ({ open: DASH.open, total: +document.querySelector('#dKpi .kn[data-k=total]').dataset.to, n: rowsFor().length,
+      list: document.querySelectorAll('#dList .li').length, F: { unit: [...DASH.F.unit], svc: [...DASH.F.svc], dk: [...DASH.F.dk], t: DASH.F.t, q: DASH.F.q } }));
+
+    // 開啟前:主畫面不受影響
+    check('看板:未開啟前不佔畫面', await sel(o.page, () => !document.querySelector('.dash') && getComputedStyle(document.body).overflow !== 'hidden'));
+    await o.page.click('#dashBtn'); await o.page.waitForTimeout(250);
+    const s0 = await st();
+    const expectN = await sel(o.page, () => getShiftFilteredRows(filteredRows).length);
+    check('看板:開啟,件數與主畫面一致', s0.open && s0.total === expectN && s0.n === expectN, JSON.stringify(s0));
+    check('看板:全螢幕且鎖住背景捲動', await sel(o.page, () => { const r = document.querySelector('.dash').getBoundingClientRect(); return r.width === innerWidth && r.height === innerHeight && document.body.style.overflow === 'hidden'; }));
+    check('看板:預設深色主題', await sel(o.page, () => !document.querySelector('.dash').classList.contains('light')));
+    const priv = await sel(o.page, () => document.querySelector('.dash').textContent);
+    check('看板:不顯示姓名/電話', !/王\d|0910000|09\d{8}/.test(priv.replace(/AB\d+/g, '')), '');
+    check('看板:KPI 各類別加總等於總數', await sel(o.page, () => [...document.querySelectorAll('#dKpi .kpi-svc .kn')].reduce((a, b) => a + (+b.dataset.to), 0) === rowsFor().length));
+
+    // 交叉篩選:點廠所
+    const unit0 = await sel(o.page, () => document.querySelector('.hb[data-f=unit]').dataset.v);
+    const unitN = await sel(o.page, u => DASH.X.filter(x => x.unit === u).length, unit0);
+    await o.page.click('.hb[data-f=unit] >> nth=0'); await o.page.waitForTimeout(100);
+    const s1 = await st();
+    check('看板:點廠所 → 件數 = 該廠所件數', s1.total === unitN && s1.F.unit[0] === unit0, `${s1.total} vs ${unitN}`);
+    check('看板:點廠所 → 出現篩選標籤與「清除全部」', await sel(o.page, () => document.querySelectorAll('#dChips .chip').length === 2));
+    const distShown = await sel(o.page, u => [...document.querySelectorAll('#dDist .hb')].every(h => DASH.X.some(x => x.dk === h.dataset.v && x.unit === u)), unit0);
+    check('看板:點廠所 → 行政區圖只剩該廠所的行政區', distShown);
+    // 交叉篩選的關鍵:廠所圖本身排除自己的篩選,仍顯示所有廠所
+    check('看板:廠所圖保留其他廠所(未被選取者淡化)', await sel(o.page, () => document.querySelectorAll('#dUnit .hb').length === new Set(DASH.X.map(x => x.unit)).size && document.querySelectorAll('#dUnit .hb.dim').length === document.querySelectorAll('#dUnit .hb').length - 1));
+    // 再點類別
+    await o.page.click('.kpi-svc[data-v=repair]'); await o.page.waitForTimeout(100);
+    const s2 = await st(), exp2 = await sel(o.page, u => DASH.X.filter(x => x.unit === u && x.k === 'repair').length, unit0);
+    check('看板:廠所 + 類別 同時篩選', s2.total === exp2 && s2.list === Math.min(30, exp2), `${s2.total} vs ${exp2}`);
+    // 取消
+    await o.page.click('.chip[data-x=svc]'); await o.page.click('.chip[data-x=unit]'); await o.page.waitForTimeout(100);
+    check('看板:點標籤可取消篩選', (await st()).total === expectN);
+
+    // 時間軸拖曳
+    const nb = await sel(o.page, () => DASH.trend.items.length);
+    check('看板:時間軸每個時段一欄', await sel(o.page, () => document.querySelectorAll('.tl .tc').length === DASH.trend.items.length) && nb >= 2);
+    const tl = await o.page.locator('.tl').boundingBox();
+    await o.page.mouse.move(tl.x + 2, tl.y + 40); await o.page.mouse.down();
+    await o.page.mouse.move(tl.x + tl.width * 0.2, tl.y + 40, { steps: 5 }); await o.page.mouse.up(); await o.page.waitForTimeout(100);
+    const s3 = await st();
+    const exp3 = await sel(o.page, () => DASH.X.filter(x => x.b >= DASH.F.t[0] && x.b <= DASH.F.t[1]).length);
+    check('看板:拖曳時間軸 → 只剩所選時段的案件', !!s3.F.t && s3.F.t[0] === 0 && s3.F.t[1] < nb - 1 && s3.total === exp3 && s3.total < expectN, JSON.stringify(s3.F.t) + ' ' + s3.total + '/' + exp3);
+    // 點熱力圖格子 = 行政區 + 時段
+    await o.page.click('[data-act=clear]'); await o.page.waitForTimeout(80);
+    check('看板:清除全部', (await st()).total === expectN);
+    await o.page.click('.hm-c:not(.z) >> nth=0'); await o.page.waitForTimeout(100);
+    const s4 = await st();
+    check('看板:點熱力圖格子 → 同時套用行政區與時段', s4.F.dk.length === 1 && !!s4.F.t && s4.F.t[0] === s4.F.t[1] && s4.total >= 1 && s4.total < expectN, JSON.stringify(s4.F));
+    await o.page.click('[data-act=clear]');
+
+    // 搜尋
+    const q = await sel(o.page, () => DASH.X[0].r.rec);
+    await o.page.fill('#dQ', q); await o.page.waitForTimeout(350);
+    const s5 = await st();
+    check('看板:搜尋受理編號 → 只剩 1 筆', s5.total === 1 && s5.list === 1 && s5.F.q === q.toLowerCase(), JSON.stringify(s5));
+    await o.page.fill('#dQ', '不存在的字串'); await o.page.waitForTimeout(350);
+    check('看板:搜尋無結果有提示', await sel(o.page, () => document.querySelector('#dList').textContent.includes('沒有符合條件的案件')));
+    await o.page.click('[data-act=clear]');
+    check('看板:清除後搜尋框清空', await sel(o.page, () => document.getElementById('dQ').value === ''));
+
+    // 清單分頁
+    const bigN = await sel(o.page, () => rowsFor().length);
+    if(bigN > 30){
+      await o.page.click('[data-act=more]');
+      check('看板:清單「再顯示 30 筆」', (await st()).list === Math.min(60, bigN));
+    }
+
+    // 播放:結束後回到全部時段
+    await sel(o.page, () => { window.__origIv = window.setInterval; });
+    await o.page.click('#dPlay'); await o.page.waitForTimeout(150);
+    check('看板:播放中按鈕變暫停且時段從頭累計', await sel(o.page, () => DASH.playing && document.getElementById('dPlay').textContent.includes('暫停') && DASH.F.t && DASH.F.t[0] === 0));
+    await o.page.click('#dPlay'); await o.page.waitForTimeout(50);
+    check('看板:可暫停', await sel(o.page, () => !DASH.playing));
+    await sel(o.page, () => dashClear());
+
+    // 主題與記憶
+    await o.page.click('[data-act=theme]');
+    check('看板:切換淺色並記住', await sel(o.page, () => document.querySelector('.dash').classList.contains('light') && localStorage.getItem('wurt.dashTheme') === 'light'));
+    await o.page.click('[data-act=theme]');
+
+    // 主畫面變動時同步(例如在主畫面改篩選)
+    await sel(o.page, () => { const cb = [...document.querySelectorAll('#unitChecks input')][0]; cb.checked = false; cb.dispatchEvent(new Event('change')); });
+    const live = await st();
+    check('看板:主畫面篩選改變 → 看板即時同步', live.total === (await sel(o.page, () => getShiftFilteredRows(filteredRows).length)) && live.total < expectN, JSON.stringify(live));
+    await sel(o.page, () => { document.querySelectorAll('#unitChecks input').forEach(c => c.checked = true); applyFilter(); });
+
+    // Esc 關閉並還原
+    await o.page.keyboard.press('Escape'); await o.page.waitForTimeout(100);
+    check('看板:Esc 關閉,背景捲動還原', await sel(o.page, () => !DASH.open && !document.querySelector('.dash') && document.body.style.overflow === ''));
+    // 再次開啟:篩選已重置
+    await o.page.click('#dashBtn'); await o.page.waitForTimeout(150);
+    check('看板:重新開啟為乾淨狀態', (await st()).total === (await sel(o.page, () => getShiftFilteredRows(filteredRows).length)));
+    await o.page.click('[data-act=close]');
+
+    // 空資料
+    await sel(o.page, () => { filteredRows = []; });
+    await sel(o.page, () => openDashboard());
+    check('看板:沒有資料時不開啟並提示', o.dialogs.some(d => d.includes('沒有資料')) && (await sel(o.page, () => !DASH.open)));
+    check('看板:無頁面錯誤', o.errors.length === 0, o.errors.join('|'));
+    await o.ctx.close();
+  }
+
+  // 另開視窗:看板整個搬到新視窗(樣式一起帶過去),主畫面可同步;收回/關閉視窗都能還原
+  {
+    const o = await openPage();
+    await sel(o.page, a => __loadAoa(a), aoa);
+    await sel(o.page, () => { toggleDisaster(); applyAll(); openDashboard(); });
+    const [pop] = await Promise.all([o.ctx.waitForEvent('page'), o.page.click('[data-act=pop]')]);
+    await pop.waitForSelector('.dash.popped .tc');
+    const p1 = await pop.evaluate(() => ({ bg: getComputedStyle(document.querySelector('.dash')).backgroundColor, tc: document.querySelectorAll('.tc').length }));
+    check('另開視窗:看板搬到新視窗且樣式套用', p1.bg === 'rgb(10, 18, 32)' && p1.tc >= 2, JSON.stringify(p1));
+    check('另開視窗:主畫面不再有看板、狀態仍為開啟', await sel(o.page, () => !document.querySelector('.dash') && DASH.open));
+    await pop.click('.hb[data-f=unit] >> nth=0');
+    check('另開視窗:在新視窗內可互動篩選', await sel(o.page, () => DASH.F.unit.size === 1) && await pop.evaluate(() => document.querySelectorAll('#dChips .chip').length === 2));
+    await sel(o.page, () => { const cb = [...document.querySelectorAll('#unitChecks input')][1]; cb.checked = false; cb.dispatchEvent(new Event('change')); });
+    const shown = await pop.evaluate(() => +document.querySelector('.kn[data-k=total]').dataset.to);   // 新視窗內沒有主畫面的全域函式,只讀畫面上的數字
+    check('另開視窗:主畫面改篩選 → 新視窗同步(總件數一致)', shown === await sel(o.page, () => rowsFor().length) && await sel(o.page, () => DASH.X.length === getShiftFilteredRows(filteredRows).length));
+    await pop.click('[data-act=dock]'); await o.page.waitForTimeout(150);
+    check('收回:回到主畫面全螢幕、視窗關閉', await sel(o.page, () => !!document.querySelector('.dash') && !document.querySelector('.dash.popped') && document.body.style.overflow === 'hidden') && pop.isClosed());
+    const [pop2] = await Promise.all([o.ctx.waitForEvent('page'), o.page.click('[data-act=pop]')]);
+    await pop2.waitForSelector('.dash.popped');
+    await pop2.close(); await o.page.waitForTimeout(200);
+    check('直接關掉新視窗:看板關閉且主畫面還原', await sel(o.page, () => !DASH.open && document.body.style.overflow === ''));
+    check('另開視窗:無對話框/錯誤', o.dialogs.length === 0 && o.errors.length === 0, o.dialogs.concat(o.errors).join('|'));
+    await o.ctx.close();
+  }
+
+  // 手機寬度:看板不得橫向溢出
+  {
+    const o = await openPage(base + '/', { mobile: true });
+    await sel(o.page, a => __loadAoa(a), aoa);
+    await sel(o.page, () => { toggleDisaster(); applyAll(); openDashboard(); });
+    await o.page.waitForTimeout(250);
+    const m = await sel(o.page, () => { const d = document.querySelector('.dash'); return { sw: d.scrollWidth, cw: d.clientWidth, doc: document.documentElement.scrollWidth, iw: innerWidth,
+      over: [...d.querySelectorAll('.card,.kpi,.hb,.li,.hm')].filter(el => el.getBoundingClientRect().right > innerWidth + 1).length }; });
+    check('手機:看板無橫向捲動、無元件超出螢幕', m.sw <= m.cw && m.doc <= m.iw && m.over === 0, JSON.stringify(m));
+    check('手機:看板無錯誤', o.errors.length === 0 && o.dialogs.length === 0, o.errors.concat(o.dialogs).join('|'));
+    await o.ctx.close();
+  }
+
   // ═════ 4. 離線版(字型被封鎖仍須能匯 PDF) ═════
   {
     offlineFile = path.join(os.tmpdir(), 'wurt_offline_test.html');

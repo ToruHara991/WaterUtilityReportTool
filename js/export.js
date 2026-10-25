@@ -149,6 +149,8 @@ async function exportPDF(){
   const now = new Date();
   const dateStr = `${now.getMonth()+1}/${now.getDate()}`;
   const total = totalChunks.length;
+  // 選填:戰情摘要首頁(+災害模式各所頁首小計);未勾選時 PDF 與原本完全相同
+  const withSummary = document.getElementById('chkPdfSummary').checked;
 
   const { jsPDF } = window.jspdf;
 
@@ -168,6 +170,10 @@ async function exportPDF(){
 
     // 表頭與欄寬(mm,A4 直式可用寬約 198mm、margin 各 6mm)來自 COLUMNS
     const A4_W = doc.internal.pageSize.width;
+    if(withSummary){
+      setProgress(10, '產生戰情摘要…');
+      drawPdfSummary(doc, computeSummary(getShiftFilteredRows(filteredRows)), dateStr, disasterMode ? '災害模式' : '平常模式');
+    }
 
     // 共用的 autoTable 設定工廠:styles / headStyles / columnStyles(含特調欄寬)
     // 平常模式與災害模式完全共用,只有 body、染色規則、startY、頂部留白與頁首重繪不同。
@@ -224,7 +230,7 @@ async function exportPDF(){
         setProgress(Math.round(15 + (gi/gtotal)*75), `產生 ${unit}（${gi+1}/${gtotal} 個廠所）…`);
         await tick();
 
-        if(gi > 0) doc.addPage();
+        if(gi > 0 || withSummary) doc.addPage();
 
         // 該廠所內出現的行政區(依出現順序),放進頁首帶狀列當小提示
         const distsHere = [];
@@ -232,9 +238,11 @@ async function exportPDF(){
         for(const r of rows){ const k=distKey(r); if(!seen.has(k)){seen.add(k);distsHere.push(k);} }
 
         // 頁首帶狀列的繪製:封裝起來,讓續表(同廠所跨頁)時也能在每頁頂端重印
+        const bandH = withSummary ? 12 : 7;          // 勾選摘要時,帶狀列多一行該廠所小計
+        const subLine = withSummary ? unitSubtotalLine(rows) : '';
         const drawUnitBand = () => {
           doc.setFillColor(26,58,92);
-          doc.rect(6, 6, A4_W-12, 7, 'F');
+          doc.rect(6, 6, A4_W-12, bandH, 'F');
           doc.setFont('NotoSansTC','bold');
           doc.setFontSize(8);
           doc.setTextColor(255,255,255);
@@ -243,11 +251,16 @@ async function exportPDF(){
           doc.setFontSize(7);
           doc.setTextColor(200,220,255);
           doc.text(`行政區 ${distsHere.length} 區　${dateStr}`, A4_W-9, 11.5, {align:'right'});
+          if(subLine){
+            doc.setFontSize(7.5);
+            doc.setTextColor(255,236,170);
+            doc.text(subLine, 9, 16.5);
+          }
         };
 
         const opts = makeTableOpts(rows, rowFill);
-        opts.startY = 15;
-        opts.margin = { left:6, right:6, top:15 };   // top:15 讓續表頁也在帶狀列下方開始
+        opts.startY = 8 + bandH;
+        opts.margin = { left:6, right:6, top:8 + bandH };   // top:15 讓續表頁也在帶狀列下方開始
         opts.didDrawPage = drawUnitBand;             // 每一頁(含續表)頂端重印廠所帶狀列
         opts.rowPageBreak = 'avoid';                 // 整列不跨頁:一件案件的資料不會被分頁線切成兩半
         doc.autoTable(opts);
@@ -271,7 +284,7 @@ async function exportPDF(){
       setProgress(pct, `產生第 ${ci+1} / ${total} 頁…`);
       await tick();
 
-      if(ci > 0) doc.addPage();
+      if(ci > 0 || withSummary) doc.addPage();
 
       // 頁面標題列（A4_W 已於 try 區塊頂端宣告）
       doc.setFillColor(26,58,92);

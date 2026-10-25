@@ -22,6 +22,7 @@ function renderFiltered(){
   // 不再用「暫時覆寫 filteredRows 再還原」的方式各自為政。
   const rows = getShiftFilteredRows(filteredRows);
   refreshSummary(rows);   // 統計摘要(收合時不計算)
+  refreshDashboard(rows); // 災情看板(未開啟時不做事;外掛見 js/dashboard.js)
   if(!rows.length){
     pg.innerHTML='<div style="text-align:center;padding:40px;color:#888">無資料</div>';
     document.getElementById('pagerBar').classList.remove('show');

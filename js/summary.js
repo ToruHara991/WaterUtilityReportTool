@@ -18,13 +18,16 @@ function roadOf(addr){
 //  dists    : [{ label, n, units:[廠所] }] 依件數由多到少(同數依名稱)
 //  roads    : [{ label, n }] 同一(縣市+行政區+路段)有 2 件以上者,由多到少
 //  peak     : { label, n } 單一小時內案件最多者(無時間資料則 null)
+//  trend    : { unit:'hour'|'day', items:[{label,n}] } 依時間排序、補零的案件湧入趨勢(超過 36 個小時改用「日」);無時間資料則 null
+//  latest   : 資料中最晚的申報時間字串(如「5/30 14:05」),無則 ''
 function computeSummary(rows){
   const keys = SVC_STYLES.map(s => s.key);
   const zero = () => Object.fromEntries([...keys, 'other'].map(k => [k, 0]));
   const byUnit = new Map(), svcTotals = zero();
   const distMap = new Map(), roadMap = new Map(), hourMap = new Map();
   const multiCity = new Set(rows.map(r => r.city).filter(Boolean)).size > 1;
-  let roadUnknown = 0;
+  let roadUnknown = 0, latestV = 0, latest = '';
+  const hourV = new Map();   // 小時鍵 → 該小時起點的 [月,日,時],供趨勢排序補零
 
   for(const r of rows){
     const k = (svcStyle(r.svc) || { key: 'other' }).key;
@@ -48,7 +51,9 @@ function computeSummary(rows){
     if(tm){
       const hk = tm[1] + ' ' + pad(+tm[2]);
       hourMap.set(hk, (hourMap.get(hk) || 0) + 1);
+      hourV.set(hk, [+tm[1].split('/')[0], +tm[1].split('/')[1], +tm[2]]);
     }
+    if(r.timeVal > latestV){ latestV = r.timeVal; latest = r.time; }
   }
 
   const byN = (a, b) => b.n - a.n || a.label.localeCompare(b.label, 'zh-Hant');
@@ -60,7 +65,33 @@ function computeSummary(rows){
     if(!peak || n > peak.n) peak = { label: `${hk}:00–${hk.split(' ')[1]}:59`, n };
   }
   return { total: rows.length, unitRows, svcTotals, hasOther: svcTotals.other > 0,
-           dists, roads, roadUnknown, peak, multiCity };
+           dists, roads, roadUnknown, peak, multiCity, trend: buildTrend(hourMap, hourV), latest };
+}
+
+// 趨勢:小時為單位並補零;跨度超過 36 小時改以「日」為單位。年份只用來換算日曆(不影響標籤)。
+function buildTrend(hourMap, hourV){
+  if(!hourMap.size) return null;
+  const T = hk => { const [m, d, h] = hourV.get(hk); return Date.UTC(2000, m - 1, d, h); };
+  const keys = [...hourMap.keys()];
+  const ts = keys.map(T), lo = Math.min(...ts), hi = Math.max(...ts);
+  const byT = new Map(keys.map(k => [T(k), hourMap.get(k)]));
+  const hours = Math.round((hi - lo) / 3600000) + 1;
+  const items = [];
+  if(hours <= 36){
+    for(let t = lo; t <= hi; t += 3600000){
+      const d = new Date(t);
+      items.push({ label: `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${pad(d.getUTCHours())}`, n: byT.get(t) || 0 });
+    }
+    return { unit: 'hour', items };
+  }
+  const dayN = new Map();
+  for(const [t, n] of byT){ const d = new Date(t); const k = Date.UTC(2000, d.getUTCMonth(), d.getUTCDate()); dayN.set(k, (dayN.get(k) || 0) + n); }
+  const d0 = Math.min(...dayN.keys()), d1 = Math.max(...dayN.keys());
+  for(let t = d0; t <= d1; t += 86400000){
+    const d = new Date(t);
+    items.push({ label: `${d.getUTCMonth() + 1}/${d.getUTCDate()}`, n: dayN.get(t) || 0 });
+  }
+  return { unit: 'day', items };
 }
 
 // ── 畫面 ──
