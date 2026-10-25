@@ -105,7 +105,7 @@ function dTimeLabel(a, b){
 
 function dBars(list, f, max, fmt){
   if(!list.length) return '<div class="d-empty">無資料</div>';
-  return list.map(o => `<div class="hb${dSel(f, o.key) ? ' sel' : ''}${dDim(f, o.key)}" data-f="${f}" data-v="${e(o.key)}" title="${e(o.label)}：${o.n} 件">` +
+  return list.map(o => `<div class="hb${(fmt ? fmt(o) : o.label).length > 6 ? ' long' : ''}${dSel(f, o.key) ? ' sel' : ''}${dDim(f, o.key)}" data-f="${f}" data-v="${e(o.key)}" title="${e(o.label)}：${o.n} 件">` +
     `<span class="hb-l">${e(fmt ? fmt(o) : o.label)}</span><span class="hb-t"><i style="width:${Math.max(3, o.n / max * 100)}%">${dSegs(o.by)}</i></span><span class="hb-n">${o.n}</span></div>`).join('');
 }
 function dUnitHtml(){

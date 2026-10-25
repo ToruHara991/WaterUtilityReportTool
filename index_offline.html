@@ -851,6 +851,10 @@ col.cJ{width:36px} col.cK{width:62px} col.cL{width:64px}
 .hb{display:grid;grid-template-columns:minmax(4.5em,8em) 1fr 2.4em;gap:8px;align-items:center;padding:5px 6px;border-radius:8px;cursor:pointer;transition:opacity .2s,background .15s}
 .hb:hover{background:rgba(148,163,184,.1)}
 .hb.sel{background:rgba(56,189,248,.14);box-shadow:inset 3px 0 0 var(--acc)}
+/* 名稱較長(含縣市/路段)時:名稱獨佔一行完整顯示,長條在下一行(手機一律如此,見下方 @media) */
+.hb.long{grid-template-columns:1fr auto;grid-template-areas:"l n" "t t";gap:4px 8px;padding:7px 6px}
+.hb.long .hb-l{grid-area:l;white-space:normal;overflow:visible;line-height:1.35;overflow-wrap:anywhere}
+.hb.long .hb-n{grid-area:n}.hb.long .hb-t{grid-area:t}
 .hb-l{font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hb-t{height:14px;background:rgba(148,163,184,.1);border-radius:7px;overflow:hidden}
 .hb-t i{display:flex;height:100%;border-radius:7px;overflow:hidden}
@@ -2966,7 +2970,7 @@ function dTimeLabel(a, b){
 
 function dBars(list, f, max, fmt){
   if(!list.length) return '<div class="d-empty">無資料</div>';
-  return list.map(o => `<div class="hb${dSel(f, o.key) ? ' sel' : ''}${dDim(f, o.key)}" data-f="${f}" data-v="${e(o.key)}" title="${e(o.label)}：${o.n} 件">` +
+  return list.map(o => `<div class="hb${(fmt ? fmt(o) : o.label).length > 6 ? ' long' : ''}${dSel(f, o.key) ? ' sel' : ''}${dDim(f, o.key)}" data-f="${f}" data-v="${e(o.key)}" title="${e(o.label)}：${o.n} 件">` +
     `<span class="hb-l">${e(fmt ? fmt(o) : o.label)}</span><span class="hb-t"><i style="width:${Math.max(3, o.n / max * 100)}%">${dSegs(o.by)}</i></span><span class="hb-n">${o.n}</span></div>`).join('');
 }
 function dUnitHtml(){
