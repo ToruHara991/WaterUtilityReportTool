@@ -71,8 +71,6 @@
 .tcs{width:100%;display:flex;flex-direction:column-reverse;border-radius:3px 3px 0 0;overflow:hidden;min-height:0}
 .tcs b{display:block;min-height:1px}
 .tc.peak .tcs{box-shadow:0 0 12px rgba(248,113,113,.45)}
-.tax{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:2px;margin-top:5px;font-size:.68rem;color:var(--sub)}
-.tax span{white-space:nowrap;overflow:visible;text-align:center;transform:translateX(0)}
 
 /* 橫向長條(廠所/行政區/路段) */
 .hb{display:grid;grid-template-columns:minmax(4.5em,8em) 1fr 2.4em;gap:8px;align-items:center;padding:5px 6px;border-radius:8px;cursor:pointer;transition:opacity .2s,background .15s}
@@ -147,7 +145,9 @@
 .dash.light .seg button.on{color:#fff}
 .dash .d-fold{padding:4px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);font-size:.78rem;font-weight:700;color:var(--sub);min-height:30px}
 .dash .d-fold:hover{border-color:var(--acc);color:var(--acc)}
-.card.folded #dTime,.card.folded .d-segw,.card.folded #dPlay,.card.folded h3 small{display:none}
+.card.folded #dTime,.card.folded .d-segw,.card.folded #dPlay,.card.folded .d-hint-open{display:none}
+.d-hint-fold{display:none}
+.card.folded .d-hint-fold{display:inline;color:var(--acc);font-weight:700}
 .card.folded h3{margin-bottom:0}
 .hbs:not(.open) .hb.ex{display:none}
 .dash .d-more2{display:block;width:100%;min-height:40px;margin-top:8px;padding:8px;border-radius:10px;border:1px dashed var(--line);color:var(--acc);font-size:.8rem;font-weight:700}
@@ -174,3 +174,10 @@
 .dash .d-exp:disabled{opacity:.4;cursor:not-allowed}
 .kpi-sub{display:block;margin-top:2px;font-size:.72rem;color:var(--acc)}
 @media(max-width:700px){.dash .d-tog{min-height:34px}.dash .d-exp{min-height:36px}.td{font-size:.78rem;padding:3px 4px}}
+
+/* 小時刻度:短刻度線 + 當天顏色的小時文字,緊貼長條下方;日期色帶再貼在其下 */
+.tax{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:2px;margin-top:0;font-size:.72rem}
+.tax span{position:relative;height:calc(8px + 1.45em);padding-top:8px;line-height:1.25;white-space:nowrap;overflow:visible;text-align:center}
+.tax .tk{color:color-mix(in srgb,var(--dc) 82%,var(--tx));font-weight:700;font-variant-numeric:tabular-nums}
+.tax .tk::before{content:'';position:absolute;left:50%;top:0;height:5px;border-left:2px solid var(--dc);transform:translateX(-1px)}
+.tday{margin-top:2px}

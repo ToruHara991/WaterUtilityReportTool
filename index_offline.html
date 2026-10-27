@@ -846,8 +846,6 @@ col.cJ{width:36px} col.cK{width:62px} col.cL{width:64px}
 .tcs{width:100%;display:flex;flex-direction:column-reverse;border-radius:3px 3px 0 0;overflow:hidden;min-height:0}
 .tcs b{display:block;min-height:1px}
 .tc.peak .tcs{box-shadow:0 0 12px rgba(248,113,113,.45)}
-.tax{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:2px;margin-top:5px;font-size:.68rem;color:var(--sub)}
-.tax span{white-space:nowrap;overflow:visible;text-align:center;transform:translateX(0)}
 
 /* 橫向長條(廠所/行政區/路段) */
 .hb{display:grid;grid-template-columns:minmax(4.5em,8em) 1fr 2.4em;gap:8px;align-items:center;padding:5px 6px;border-radius:8px;cursor:pointer;transition:opacity .2s,background .15s}
@@ -922,7 +920,9 @@ col.cJ{width:36px} col.cK{width:62px} col.cL{width:64px}
 .dash.light .seg button.on{color:#fff}
 .dash .d-fold{padding:4px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);font-size:.78rem;font-weight:700;color:var(--sub);min-height:30px}
 .dash .d-fold:hover{border-color:var(--acc);color:var(--acc)}
-.card.folded #dTime,.card.folded .d-segw,.card.folded #dPlay,.card.folded h3 small{display:none}
+.card.folded #dTime,.card.folded .d-segw,.card.folded #dPlay,.card.folded .d-hint-open{display:none}
+.d-hint-fold{display:none}
+.card.folded .d-hint-fold{display:inline;color:var(--acc);font-weight:700}
 .card.folded h3{margin-bottom:0}
 .hbs:not(.open) .hb.ex{display:none}
 .dash .d-more2{display:block;width:100%;min-height:40px;margin-top:8px;padding:8px;border-radius:10px;border:1px dashed var(--line);color:var(--acc);font-size:.8rem;font-weight:700}
@@ -949,6 +949,13 @@ col.cJ{width:36px} col.cK{width:62px} col.cL{width:64px}
 .dash .d-exp:disabled{opacity:.4;cursor:not-allowed}
 .kpi-sub{display:block;margin-top:2px;font-size:.72rem;color:var(--acc)}
 @media(max-width:700px){.dash .d-tog{min-height:34px}.dash .d-exp{min-height:36px}.td{font-size:.78rem;padding:3px 4px}}
+
+/* 小時刻度:短刻度線 + 當天顏色的小時文字,緊貼長條下方;日期色帶再貼在其下 */
+.tax{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:2px;margin-top:0;font-size:.72rem}
+.tax span{position:relative;height:calc(8px + 1.45em);padding-top:8px;line-height:1.25;white-space:nowrap;overflow:visible;text-align:center}
+.tax .tk{color:color-mix(in srgb,var(--dc) 82%,var(--tx));font-weight:700;font-variant-numeric:tabular-nums}
+.tax .tk::before{content:'';position:absolute;left:50%;top:0;height:5px;border-left:2px solid var(--dc);transform:translateX(-1px)}
+.tday{margin-top:2px}
 
 </style>
 </head>
@@ -2994,13 +3001,24 @@ function dTrendCard(ti, tl){
   return `<div class="kpi kpi-trend ${mood}"><span class="kn2">${arrow} ${a}<small>件</small></span><label>${partial ? '最近完整時段' : '最新時段'}（${e(ti[hi].name)}）・前一時段 ${p}</label>${sub}</div>`;
 }
 
+// 哪些時段要標小時:從「每 6 小時(4 小時粗細則每 12 小時)」開始,標籤太多就逐級放寬到 12、24 小時;再多就不標。
+function dTicks(ti){
+  const out = new Set(); if(!DASH.trend || DASH.trend.unit !== 'hour') return out;
+  const max = dashWin().innerWidth < 700 ? 6 : 12;
+  for(const m of (DASH.trend.step >= 4 ? [12, 24] : [6, 12, 24])){
+    const hit = ti.map((it, i) => +it.label.split(' ')[1] % m === 0 ? i : -1).filter(i => i >= 0);
+    if(hit.length <= max){ hit.forEach(i => out.add(i)); return out; }
+  }
+  return out;
+}
+
 function dTimeHtml(){
   const ti = DASH.trend ? DASH.trend.items : [];
   if(!ti.length) return '<div class="d-empty">資料沒有可判讀的申報時間</div>';
   const xs = rowsFor('t'), n = ti.length, F = DASH.F;
   const per = ti.map(() => ({ n: 0, by: {} }));
   xs.forEach(x => { if(x.b >= 0){ const o = per[x.b]; o.n++; o.by[x.k] = (o.by[x.k] || 0) + 1; } });
-  const max = Math.max(...per.map(o => o.n), 1), step = dStep(n), u = DASH.trend.unit === 'hour' ? '時' : '';
+  const max = Math.max(...per.map(o => o.n), 1);
   // 日期:每一天一個顏色(同一天同色,相鄰天不同色),在長條下方畫日期色帶,日界線以虛線標示
   const dayOf = it => it.label.split(' ')[0], days = [];
   ti.forEach((it, i) => { const d = dayOf(it); if(!days.length || days[days.length - 1].d !== d) days.push({ d, i, n: 0 }); days[days.length - 1].n++; });
@@ -3010,9 +3028,11 @@ function dTimeHtml(){
     return `<div class="tc${off ? ' off' : ''}${o.n === max && o.n ? ' peak' : ''}${i && dayOf(ti[i - 1]) !== dayOf(ti[i]) ? ' dstart' : ''}" data-i="${i}" style="--dc:var(--d${k})" title="${e(ti[i].name)}：${o.n} 件">` +
            `<div class="tcs" style="height:${o.n / max * 100}%">${dSegs(o.by)}</div></div>`;
   }).join('');
-  const axis = ti.map((it, i) => `<span>${i % step === 0 ? e(it.label) + u : ''}</span>`).join('');
+  // 小時刻度:只寫「整點小時」(日期交給下方色帶),文字與刻度線沿用當天的顏色;整天模式不需要
+  const ticks = dTicks(ti), axis = DASH.trend.unit === 'hour'
+    ? ti.map((it, i) => `<span${ticks.has(i) ? ` class="tk" style="--dc:var(--d${dayIdx.get(dayOf(it)) % 5})"` : ''}>${ticks.has(i) ? +it.label.split(' ')[1] + '時' : ''}</span>`).join('') : '';
   const strip = days.map((g, k) => `<div class="td" style="grid-column:span ${g.n};--dc:var(--d${k % 5})" title="${e(g.d)}">${g.n >= 2 || n <= 12 ? e(g.d) : e(g.d.split('/')[1]) + '日'}</div>`).join('');
-  return `<div class="tl" style="--n:${n}">${cols}</div><div class="tax" style="--n:${n}">${axis}</div><div class="tday" style="--n:${n}">${strip}</div>`;
+  return `<div class="tl" style="--n:${n}">${cols}</div>${axis ? `<div class="tax" style="--n:${n}">${axis}</div>` : ''}<div class="tday" style="--n:${n}">${strip}</div>`;
 }
 function dTimeLabel(a, b){
   const ti = DASH.trend.items, lo = Math.min(a, b), hi = Math.max(a, b);
@@ -3250,7 +3270,7 @@ const DASH_SKELETON = `
 <div class="d-chips" id="dChips"></div>
 <main class="d-body">
   <section id="dKpi" class="kpis"></section>
-  <section class="card wide" id="dTimeCard"><h3>案件湧入趨勢<small>拖曳選取時段，或點單一時段</small><span class="sp"></span><span class="d-sel" id="dSel"></span>
+  <section class="card wide" id="dTimeCard"><h3>案件湧入趨勢<small class="d-hint-open">拖曳選取時段，或點單一時段</small><small class="d-hint-fold">已收合；按「展開」可看圖與切換時段</small><span class="sp"></span><span class="d-sel" id="dSel"></span>
     <span class="d-segw"><span class="seg" role="group" aria-label="時段粗細"><button data-step="auto">自動</button><button data-step="1">1小時</button><button data-step="2">2小時</button><button data-step="4">4小時</button><button data-step="24">整天</button></span></span>
     <button data-act="play" id="dPlay" class="d-btn">▶ 播放</button><button data-act="fold" id="dFold" class="d-fold">收合 ▲</button></h3><div id="dTime"></div></section>
   <section class="card"><h3>廠所</h3><div id="dUnit"></div></section>

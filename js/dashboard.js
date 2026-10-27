@@ -94,13 +94,24 @@ function dTrendCard(ti, tl){
   return `<div class="kpi kpi-trend ${mood}"><span class="kn2">${arrow} ${a}<small>件</small></span><label>${partial ? '最近完整時段' : '最新時段'}（${e(ti[hi].name)}）・前一時段 ${p}</label>${sub}</div>`;
 }
 
+// 哪些時段要標小時:從「每 6 小時(4 小時粗細則每 12 小時)」開始,標籤太多就逐級放寬到 12、24 小時;再多就不標。
+function dTicks(ti){
+  const out = new Set(); if(!DASH.trend || DASH.trend.unit !== 'hour') return out;
+  const max = dashWin().innerWidth < 700 ? 6 : 12;
+  for(const m of (DASH.trend.step >= 4 ? [12, 24] : [6, 12, 24])){
+    const hit = ti.map((it, i) => +it.label.split(' ')[1] % m === 0 ? i : -1).filter(i => i >= 0);
+    if(hit.length <= max){ hit.forEach(i => out.add(i)); return out; }
+  }
+  return out;
+}
+
 function dTimeHtml(){
   const ti = DASH.trend ? DASH.trend.items : [];
   if(!ti.length) return '<div class="d-empty">資料沒有可判讀的申報時間</div>';
   const xs = rowsFor('t'), n = ti.length, F = DASH.F;
   const per = ti.map(() => ({ n: 0, by: {} }));
   xs.forEach(x => { if(x.b >= 0){ const o = per[x.b]; o.n++; o.by[x.k] = (o.by[x.k] || 0) + 1; } });
-  const max = Math.max(...per.map(o => o.n), 1), step = dStep(n), u = DASH.trend.unit === 'hour' ? '時' : '';
+  const max = Math.max(...per.map(o => o.n), 1);
   // 日期:每一天一個顏色(同一天同色,相鄰天不同色),在長條下方畫日期色帶,日界線以虛線標示
   const dayOf = it => it.label.split(' ')[0], days = [];
   ti.forEach((it, i) => { const d = dayOf(it); if(!days.length || days[days.length - 1].d !== d) days.push({ d, i, n: 0 }); days[days.length - 1].n++; });
@@ -110,9 +121,11 @@ function dTimeHtml(){
     return `<div class="tc${off ? ' off' : ''}${o.n === max && o.n ? ' peak' : ''}${i && dayOf(ti[i - 1]) !== dayOf(ti[i]) ? ' dstart' : ''}" data-i="${i}" style="--dc:var(--d${k})" title="${e(ti[i].name)}：${o.n} 件">` +
            `<div class="tcs" style="height:${o.n / max * 100}%">${dSegs(o.by)}</div></div>`;
   }).join('');
-  const axis = ti.map((it, i) => `<span>${i % step === 0 ? e(it.label) + u : ''}</span>`).join('');
+  // 小時刻度:只寫「整點小時」(日期交給下方色帶),文字與刻度線沿用當天的顏色;整天模式不需要
+  const ticks = dTicks(ti), axis = DASH.trend.unit === 'hour'
+    ? ti.map((it, i) => `<span${ticks.has(i) ? ` class="tk" style="--dc:var(--d${dayIdx.get(dayOf(it)) % 5})"` : ''}>${ticks.has(i) ? +it.label.split(' ')[1] + '時' : ''}</span>`).join('') : '';
   const strip = days.map((g, k) => `<div class="td" style="grid-column:span ${g.n};--dc:var(--d${k % 5})" title="${e(g.d)}">${g.n >= 2 || n <= 12 ? e(g.d) : e(g.d.split('/')[1]) + '日'}</div>`).join('');
-  return `<div class="tl" style="--n:${n}">${cols}</div><div class="tax" style="--n:${n}">${axis}</div><div class="tday" style="--n:${n}">${strip}</div>`;
+  return `<div class="tl" style="--n:${n}">${cols}</div>${axis ? `<div class="tax" style="--n:${n}">${axis}</div>` : ''}<div class="tday" style="--n:${n}">${strip}</div>`;
 }
 function dTimeLabel(a, b){
   const ti = DASH.trend.items, lo = Math.min(a, b), hi = Math.max(a, b);
@@ -350,7 +363,7 @@ const DASH_SKELETON = `
 <div class="d-chips" id="dChips"></div>
 <main class="d-body">
   <section id="dKpi" class="kpis"></section>
-  <section class="card wide" id="dTimeCard"><h3>案件湧入趨勢<small>拖曳選取時段，或點單一時段</small><span class="sp"></span><span class="d-sel" id="dSel"></span>
+  <section class="card wide" id="dTimeCard"><h3>案件湧入趨勢<small class="d-hint-open">拖曳選取時段，或點單一時段</small><small class="d-hint-fold">已收合；按「展開」可看圖與切換時段</small><span class="sp"></span><span class="d-sel" id="dSel"></span>
     <span class="d-segw"><span class="seg" role="group" aria-label="時段粗細"><button data-step="auto">自動</button><button data-step="1">1小時</button><button data-step="2">2小時</button><button data-step="4">4小時</button><button data-step="24">整天</button></span></span>
     <button data-act="play" id="dPlay" class="d-btn">▶ 播放</button><button data-act="fold" id="dFold" class="d-fold">收合 ▲</button></h3><div id="dTime"></div></section>
   <section class="card"><h3>廠所</h3><div id="dUnit"></div></section>
