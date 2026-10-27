@@ -2,6 +2,7 @@
    主題用 CSS 變數(深色為預設,.light 為淺色);類別色 --c-repair/supply/water/construct/other 與 SVC_STYLES 同色系。 */
 .dash{
   --bg:#0a1220;--panel:#111c30;--panel2:#16233b;--line:rgba(148,163,184,.16);--tx:#e6edf7;--sub:#8ba0bd;--acc:#38bdf8;--glow:0 0 0 1px rgba(56,189,248,.5),0 0 18px rgba(56,189,248,.18);
+  --d0:#38bdf8;--d1:#fbbf24;--d2:#c084fc;--d3:#fb7185;--d4:#34d399;   /* 日期色(依序輪替) */
   --c-repair:#f87171;--c-supply:#60a5fa;--c-water:#34d399;--c-construct:#fbbf24;--c-other:#94a3b8;--heat:56,189,248;--up:#f87171;--down:#34d399;
   position:fixed;inset:0;z-index:1000;overflow:auto;background:var(--bg);color:var(--tx);outline:none;
   font-family:'Noto Sans TC','Microsoft JhengHei',sans-serif;font-size:14px;-webkit-text-size-adjust:100%;
@@ -9,6 +10,7 @@
 }
 .dash.light{
   --bg:#eef3f9;--panel:#fff;--panel2:#f4f7fb;--line:rgba(26,58,92,.14);--tx:#14263a;--sub:#5b7490;--acc:#0369a1;--glow:0 0 0 1px rgba(3,105,161,.55),0 4px 14px rgba(3,105,161,.12);
+  --d0:#0369a1;--d1:#b45309;--d2:#7e22ce;--d3:#be123c;--d4:#047857;
   --c-repair:#b91c1c;--c-supply:#1d4ed8;--c-water:#047857;--c-construct:#b45309;--c-other:#64748b;--heat:3,105,161;--up:#b91c1c;--down:#047857;background-image:none;
 }
 .dash.popped{position:relative;inset:auto;min-height:100vh;z-index:auto}
@@ -136,3 +138,39 @@
   #dQ{flex:1 1 100%}
   .d-tools button{padding:7px 10px}
 }
+
+/* 時段粗細選擇、收合、展開更多 */
+.dash .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel2)}
+.dash .seg button{padding:4px 10px;font-size:.76rem;font-weight:700;color:var(--sub);border-right:1px solid var(--line);white-space:nowrap}
+.dash .seg button:last-child{border-right:0}
+.dash .seg button.on{background:var(--acc);color:#04121f}
+.dash.light .seg button.on{color:#fff}
+.dash .d-fold{padding:4px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);font-size:.78rem;font-weight:700;color:var(--sub);min-height:30px}
+.dash .d-fold:hover{border-color:var(--acc);color:var(--acc)}
+.card.folded #dTime,.card.folded .d-segw,.card.folded #dPlay,.card.folded h3 small{display:none}
+.card.folded h3{margin-bottom:0}
+.hbs:not(.open) .hb.ex{display:none}
+.dash .d-more2{display:block;width:100%;min-height:40px;margin-top:8px;padding:8px;border-radius:10px;border:1px dashed var(--line);color:var(--acc);font-size:.8rem;font-weight:700}
+.dash .d-more2:hover{border-color:var(--acc)}
+@media(max-width:700px){
+  .dash .d-fold{min-height:36px}
+  .dash .d-more2{min-height:46px}
+  /* 手機:標題列 → 播放/收合 → 時段按鈕(整排等寬) */
+  .d-segw{order:9;width:100%}.dash .seg{display:flex;width:100%}.dash .seg button{flex:1;padding:8px 2px;font-size:.74rem}
+  #dTimeCard h3 .d-btn,#dTimeCard h3 .d-fold{flex:1;min-height:38px}
+}
+
+/* 日期色帶:同一天同色,日界線虛線 */
+.tc{position:relative}
+.tc.dstart::before{content:'';position:absolute;left:-2px;top:0;bottom:0;border-left:2px dashed var(--dc);opacity:.85;pointer-events:none}
+.tday{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:2px;margin-top:6px}
+.td{min-width:0;padding:3px 6px;border-top:3px solid var(--dc);border-radius:0 0 6px 6px;background:color-mix(in srgb,var(--dc) 18%,transparent);
+  color:var(--dc);font-size:.84rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:clip;letter-spacing:.02em}
+/* 含單件、匯出 */
+.dash .d-tog{padding:3px 10px;border-radius:99px;border:1px solid var(--line);background:var(--panel2);font-size:.74rem;font-weight:700;color:var(--sub);min-height:28px}
+.dash .d-tog.on{background:var(--acc);border-color:var(--acc);color:#04121f}
+.dash.light .d-tog.on{color:#fff}
+.dash .d-exp{padding:5px 12px}
+.dash .d-exp:disabled{opacity:.4;cursor:not-allowed}
+.kpi-sub{display:block;margin-top:2px;font-size:.72rem;color:var(--acc)}
+@media(max-width:700px){.dash .d-tog{min-height:34px}.dash .d-exp{min-height:36px}.td{font-size:.78rem;padding:3px 4px}}

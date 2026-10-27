@@ -18,9 +18,9 @@ function roadOf(addr){
 //  dists    : [{ label, n, units:[廠所] }] 依件數由多到少(同數依名稱)
 //  roads    : [{ label, n }] 同一(縣市+行政區+路段)有 2 件以上者,由多到少
 //  peak     : { label, n } 單一小時內案件最多者(無時間資料則 null)
-//  trend    : { unit:'hour'|'day', items:[{label,n}] } 依時間排序、補零的案件湧入趨勢(超過 36 個小時改用「日」);無時間資料則 null
+//  trend    : { unit:'hour'|'day', step, items:[{label,name,n}] } 依時間排序、補零的案件湧入趨勢(超過 36 個小時改用「日」);無時間資料則 null
 //  latest   : 資料中最晚的申報時間字串(如「5/30 14:05」),無則 ''
-function computeSummary(rows){
+function computeSummary(rows, opts){
   const keys = SVC_STYLES.map(s => s.key);
   const zero = () => Object.fromEntries([...keys, 'other'].map(k => [k, 0]));
   const byUnit = new Map(), svcTotals = zero();
@@ -65,33 +65,30 @@ function computeSummary(rows){
     if(!peak || n > peak.n) peak = { label: `${hk}:00–${hk.split(' ')[1]}:59`, n };
   }
   return { total: rows.length, unitRows, svcTotals, hasOther: svcTotals.other > 0,
-           dists, roads, roadUnknown, peak, multiCity, trend: buildTrend(hourMap, hourV), latest };
+           dists, roads, roadUnknown, peak, multiCity, trend: buildTrend(hourMap, hourV, opts && opts.step), latest };
 }
 
-// 趨勢:小時為單位並補零;跨度超過 36 小時改以「日」為單位。年份只用來換算日曆(不影響標籤)。
-function buildTrend(hourMap, hourV){
+// 趨勢:以 step 小時為一個時段(1/2/4;24=整天),補零。年份只用來換算日曆(不影響標籤)。
+//  step 省略 = PDF/摘要的舊規則(跨度 ≤36 小時用 1 小時,否則用天);step 'auto' = 依跨度挑最細且時段數 ≤24 的(1→2→4→天)。
+//  items: [{ label:時段起點('5/30 08' 或 '5/30'), name:顯示用('5/30 08–10時'), t:起點(UTC 毫秒,年份固定 2000), n }]
+function buildTrend(hourMap, hourV, step){
   if(!hourMap.size) return null;
-  const T = hk => { const [m, d, h] = hourV.get(hk); return Date.UTC(2000, m - 1, d, h); };
-  const keys = [...hourMap.keys()];
-  const ts = keys.map(T), lo = Math.min(...ts), hi = Math.max(...ts);
-  const byT = new Map(keys.map(k => [T(k), hourMap.get(k)]));
+  const Th = hk => { const [m, d, h] = hourV.get(hk); return Date.UTC(2000, m - 1, d, h); };
+  const keys = [...hourMap.keys()], ts = keys.map(Th), lo = Math.min(...ts), hi = Math.max(...ts);
   const hours = Math.round((hi - lo) / 3600000) + 1;
-  const items = [];
-  if(hours <= 36){
-    for(let t = lo; t <= hi; t += 3600000){
-      const d = new Date(t);
-      items.push({ label: `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${pad(d.getUTCHours())}`, n: byT.get(t) || 0 });
-    }
-    return { unit: 'hour', items };
+  if(step === undefined) step = hours <= 36 ? 1 : 24;
+  else if(step === 'auto') step = [1, 2, 4].find(x => Math.ceil(hours / x) + 1 <= 24) || 24;
+  // 時段起點:整天=當日 0 時;其餘對齊 step 的倍數(0、4、8…)
+  const floorT = t => { const d = new Date(t), h = step === 24 ? 0 : d.getUTCHours() - d.getUTCHours() % step; return Date.UTC(2000, d.getUTCMonth(), d.getUTCDate(), h); };
+  const byT = new Map();
+  keys.forEach(k => { const f = floorT(Th(k)); byT.set(f, (byT.get(f) || 0) + hourMap.get(k)); });
+  const items = [], ms = step * 3600000;
+  for(let t = floorT(lo), end = floorT(hi); t <= end; t += ms){
+    const d = new Date(t), md = `${d.getUTCMonth() + 1}/${d.getUTCDate()}`, h = d.getUTCHours();
+    items.push(step === 24 ? { label: md, name: md, t, n: byT.get(t) || 0 }
+      : { label: `${md} ${pad(h)}`, name: step === 1 ? `${md} ${pad(h)}時` : `${md} ${pad(h)}–${pad(h + step)}時`, t, n: byT.get(t) || 0 });
   }
-  const dayN = new Map();
-  for(const [t, n] of byT){ const d = new Date(t); const k = Date.UTC(2000, d.getUTCMonth(), d.getUTCDate()); dayN.set(k, (dayN.get(k) || 0) + n); }
-  const d0 = Math.min(...dayN.keys()), d1 = Math.max(...dayN.keys());
-  for(let t = d0; t <= d1; t += 86400000){
-    const d = new Date(t);
-    items.push({ label: `${d.getUTCMonth() + 1}/${d.getUTCDate()}`, n: dayN.get(t) || 0 });
-  }
-  return { unit: 'day', items };
+  return { unit: step === 24 ? 'day' : 'hour', step, items };
 }
 
 // ── 畫面 ──

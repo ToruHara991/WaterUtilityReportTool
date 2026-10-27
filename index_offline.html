@@ -777,6 +777,7 @@ col.cJ{width:36px} col.cK{width:62px} col.cL{width:64px}
    主題用 CSS 變數(深色為預設,.light 為淺色);類別色 --c-repair/supply/water/construct/other 與 SVC_STYLES 同色系。 */
 .dash{
   --bg:#0a1220;--panel:#111c30;--panel2:#16233b;--line:rgba(148,163,184,.16);--tx:#e6edf7;--sub:#8ba0bd;--acc:#38bdf8;--glow:0 0 0 1px rgba(56,189,248,.5),0 0 18px rgba(56,189,248,.18);
+  --d0:#38bdf8;--d1:#fbbf24;--d2:#c084fc;--d3:#fb7185;--d4:#34d399;   /* 日期色(依序輪替) */
   --c-repair:#f87171;--c-supply:#60a5fa;--c-water:#34d399;--c-construct:#fbbf24;--c-other:#94a3b8;--heat:56,189,248;--up:#f87171;--down:#34d399;
   position:fixed;inset:0;z-index:1000;overflow:auto;background:var(--bg);color:var(--tx);outline:none;
   font-family:'Noto Sans TC','Microsoft JhengHei',sans-serif;font-size:14px;-webkit-text-size-adjust:100%;
@@ -784,6 +785,7 @@ col.cJ{width:36px} col.cK{width:62px} col.cL{width:64px}
 }
 .dash.light{
   --bg:#eef3f9;--panel:#fff;--panel2:#f4f7fb;--line:rgba(26,58,92,.14);--tx:#14263a;--sub:#5b7490;--acc:#0369a1;--glow:0 0 0 1px rgba(3,105,161,.55),0 4px 14px rgba(3,105,161,.12);
+  --d0:#0369a1;--d1:#b45309;--d2:#7e22ce;--d3:#be123c;--d4:#047857;
   --c-repair:#b91c1c;--c-supply:#1d4ed8;--c-water:#047857;--c-construct:#b45309;--c-other:#64748b;--heat:3,105,161;--up:#b91c1c;--down:#047857;background-image:none;
 }
 .dash.popped{position:relative;inset:auto;min-height:100vh;z-index:auto}
@@ -911,6 +913,42 @@ col.cJ{width:36px} col.cK{width:62px} col.cL{width:64px}
   #dQ{flex:1 1 100%}
   .d-tools button{padding:7px 10px}
 }
+
+/* 時段粗細選擇、收合、展開更多 */
+.dash .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel2)}
+.dash .seg button{padding:4px 10px;font-size:.76rem;font-weight:700;color:var(--sub);border-right:1px solid var(--line);white-space:nowrap}
+.dash .seg button:last-child{border-right:0}
+.dash .seg button.on{background:var(--acc);color:#04121f}
+.dash.light .seg button.on{color:#fff}
+.dash .d-fold{padding:4px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);font-size:.78rem;font-weight:700;color:var(--sub);min-height:30px}
+.dash .d-fold:hover{border-color:var(--acc);color:var(--acc)}
+.card.folded #dTime,.card.folded .d-segw,.card.folded #dPlay,.card.folded h3 small{display:none}
+.card.folded h3{margin-bottom:0}
+.hbs:not(.open) .hb.ex{display:none}
+.dash .d-more2{display:block;width:100%;min-height:40px;margin-top:8px;padding:8px;border-radius:10px;border:1px dashed var(--line);color:var(--acc);font-size:.8rem;font-weight:700}
+.dash .d-more2:hover{border-color:var(--acc)}
+@media(max-width:700px){
+  .dash .d-fold{min-height:36px}
+  .dash .d-more2{min-height:46px}
+  /* 手機:標題列 → 播放/收合 → 時段按鈕(整排等寬) */
+  .d-segw{order:9;width:100%}.dash .seg{display:flex;width:100%}.dash .seg button{flex:1;padding:8px 2px;font-size:.74rem}
+  #dTimeCard h3 .d-btn,#dTimeCard h3 .d-fold{flex:1;min-height:38px}
+}
+
+/* 日期色帶:同一天同色,日界線虛線 */
+.tc{position:relative}
+.tc.dstart::before{content:'';position:absolute;left:-2px;top:0;bottom:0;border-left:2px dashed var(--dc);opacity:.85;pointer-events:none}
+.tday{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:2px;margin-top:6px}
+.td{min-width:0;padding:3px 6px;border-top:3px solid var(--dc);border-radius:0 0 6px 6px;background:color-mix(in srgb,var(--dc) 18%,transparent);
+  color:var(--dc);font-size:.84rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:clip;letter-spacing:.02em}
+/* 含單件、匯出 */
+.dash .d-tog{padding:3px 10px;border-radius:99px;border:1px solid var(--line);background:var(--panel2);font-size:.74rem;font-weight:700;color:var(--sub);min-height:28px}
+.dash .d-tog.on{background:var(--acc);border-color:var(--acc);color:#04121f}
+.dash.light .d-tog.on{color:#fff}
+.dash .d-exp{padding:5px 12px}
+.dash .d-exp:disabled{opacity:.4;cursor:not-allowed}
+.kpi-sub{display:block;margin-top:2px;font-size:.72rem;color:var(--acc)}
+@media(max-width:700px){.dash .d-tog{min-height:34px}.dash .d-exp{min-height:36px}.td{font-size:.78rem;padding:3px 4px}}
 
 </style>
 </head>
@@ -1843,9 +1881,9 @@ function roadOf(addr){
 //  dists    : [{ label, n, units:[廠所] }] 依件數由多到少(同數依名稱)
 //  roads    : [{ label, n }] 同一(縣市+行政區+路段)有 2 件以上者,由多到少
 //  peak     : { label, n } 單一小時內案件最多者(無時間資料則 null)
-//  trend    : { unit:'hour'|'day', items:[{label,n}] } 依時間排序、補零的案件湧入趨勢(超過 36 個小時改用「日」);無時間資料則 null
+//  trend    : { unit:'hour'|'day', step, items:[{label,name,n}] } 依時間排序、補零的案件湧入趨勢(超過 36 個小時改用「日」);無時間資料則 null
 //  latest   : 資料中最晚的申報時間字串(如「5/30 14:05」),無則 ''
-function computeSummary(rows){
+function computeSummary(rows, opts){
   const keys = SVC_STYLES.map(s => s.key);
   const zero = () => Object.fromEntries([...keys, 'other'].map(k => [k, 0]));
   const byUnit = new Map(), svcTotals = zero();
@@ -1890,33 +1928,30 @@ function computeSummary(rows){
     if(!peak || n > peak.n) peak = { label: `${hk}:00–${hk.split(' ')[1]}:59`, n };
   }
   return { total: rows.length, unitRows, svcTotals, hasOther: svcTotals.other > 0,
-           dists, roads, roadUnknown, peak, multiCity, trend: buildTrend(hourMap, hourV), latest };
+           dists, roads, roadUnknown, peak, multiCity, trend: buildTrend(hourMap, hourV, opts && opts.step), latest };
 }
 
-// 趨勢:小時為單位並補零;跨度超過 36 小時改以「日」為單位。年份只用來換算日曆(不影響標籤)。
-function buildTrend(hourMap, hourV){
+// 趨勢:以 step 小時為一個時段(1/2/4;24=整天),補零。年份只用來換算日曆(不影響標籤)。
+//  step 省略 = PDF/摘要的舊規則(跨度 ≤36 小時用 1 小時,否則用天);step 'auto' = 依跨度挑最細且時段數 ≤24 的(1→2→4→天)。
+//  items: [{ label:時段起點('5/30 08' 或 '5/30'), name:顯示用('5/30 08–10時'), t:起點(UTC 毫秒,年份固定 2000), n }]
+function buildTrend(hourMap, hourV, step){
   if(!hourMap.size) return null;
-  const T = hk => { const [m, d, h] = hourV.get(hk); return Date.UTC(2000, m - 1, d, h); };
-  const keys = [...hourMap.keys()];
-  const ts = keys.map(T), lo = Math.min(...ts), hi = Math.max(...ts);
-  const byT = new Map(keys.map(k => [T(k), hourMap.get(k)]));
+  const Th = hk => { const [m, d, h] = hourV.get(hk); return Date.UTC(2000, m - 1, d, h); };
+  const keys = [...hourMap.keys()], ts = keys.map(Th), lo = Math.min(...ts), hi = Math.max(...ts);
   const hours = Math.round((hi - lo) / 3600000) + 1;
-  const items = [];
-  if(hours <= 36){
-    for(let t = lo; t <= hi; t += 3600000){
-      const d = new Date(t);
-      items.push({ label: `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${pad(d.getUTCHours())}`, n: byT.get(t) || 0 });
-    }
-    return { unit: 'hour', items };
+  if(step === undefined) step = hours <= 36 ? 1 : 24;
+  else if(step === 'auto') step = [1, 2, 4].find(x => Math.ceil(hours / x) + 1 <= 24) || 24;
+  // 時段起點:整天=當日 0 時;其餘對齊 step 的倍數(0、4、8…)
+  const floorT = t => { const d = new Date(t), h = step === 24 ? 0 : d.getUTCHours() - d.getUTCHours() % step; return Date.UTC(2000, d.getUTCMonth(), d.getUTCDate(), h); };
+  const byT = new Map();
+  keys.forEach(k => { const f = floorT(Th(k)); byT.set(f, (byT.get(f) || 0) + hourMap.get(k)); });
+  const items = [], ms = step * 3600000;
+  for(let t = floorT(lo), end = floorT(hi); t <= end; t += ms){
+    const d = new Date(t), md = `${d.getUTCMonth() + 1}/${d.getUTCDate()}`, h = d.getUTCHours();
+    items.push(step === 24 ? { label: md, name: md, t, n: byT.get(t) || 0 }
+      : { label: `${md} ${pad(h)}`, name: step === 1 ? `${md} ${pad(h)}時` : `${md} ${pad(h)}–${pad(h + step)}時`, t, n: byT.get(t) || 0 });
   }
-  const dayN = new Map();
-  for(const [t, n] of byT){ const d = new Date(t); const k = Date.UTC(2000, d.getUTCMonth(), d.getUTCDate()); dayN.set(k, (dayN.get(k) || 0) + n); }
-  const d0 = Math.min(...dayN.keys()), d1 = Math.max(...dayN.keys());
-  for(let t = d0; t <= d1; t += 86400000){
-    const d = new Date(t);
-    items.push({ label: `${d.getUTCMonth() + 1}/${d.getUTCDate()}`, n: dayN.get(t) || 0 });
-  }
-  return { unit: 'day', items };
+  return { unit: step === 24 ? 'day' : 'hour', step, items };
 }
 
 // ── 畫面 ──
@@ -2874,21 +2909,23 @@ function exportExcel(){
  * ═══════════════════════════════════════════════════════════ */
 
 const DASH = { open: false, win: null, root: null, X: [], S: null, trend: null, F: null, playing: false, timer: 0,
-               listN: 30, last: {}, first: true, theme: 'dark', drag: null, qTimer: 0, tap: null, lastScroll: -1e9 };
+               listN: 30, last: {}, first: true, theme: 'dark', drag: null, qTimer: 0, tap: null, lastScroll: -1e9,
+               step: 'auto', fold: false, more: { dk: false, rk: false }, road1: false };
+const DIST_SHOW = 10, DIST_MAX = 20, ROAD_SHOW = 8, ROAD_MAX = 16;   // 行政區/路段:預設顯示 10/8 條,展開後最多 20/16 條
 const DASH_KINDS = [...SVC_STYLES.map(s => ({ key: s.key, label: s.label })), { key: 'other', label: '其他' }];
 const dashFresh = () => ({ unit: new Set(), svc: new Set(), dk: new Set(), rk: new Set(), t: null, q: '' });
 const dashWin = () => DASH.win || window;
 
 // ── 資料:把每列預先算好維度鍵(廠所/類別/行政區/路段/時間桶/搜尋字串) ──
 function dashBuild(rows){
-  const S = computeSummary(rows), trend = S.trend;
+  const S = computeSummary(rows, { step: DASH.step }), trend = S.trend;
   const idx = new Map(trend ? trend.items.map((it, i) => [it.label, i]) : []);
   DASH.S = S; DASH.trend = trend;
   DASH.X = rows.map(r => {
     const dk = (r.city || '') + '|' + distKey(r), dl = (S.multiCity ? (r.city || '') : '') + distKey(r);
     const road = roadOf(r.addr), m = String(r.time || '').match(/^(\d+\/\d+)\s+(\d+):/);
     let b = -1;
-    if(m && trend){ const v = idx.get(trend.unit === 'hour' ? m[1] + ' ' + pad(+m[2]) : m[1]); if(v !== undefined) b = v; }
+    if(m && trend){ const v = idx.get(trend.step === 24 ? m[1] : m[1] + ' ' + pad(+m[2] - +m[2] % trend.step)); if(v !== undefined) b = v; }
     return { r, k: (svcStyle(r.svc) || { key: 'other' }).key, unit: r.unit || '（未分類）', dk, dl, b,
              rk: road ? dk + '|' + road : null, rl: road ? dl + ' ' + road : null,
              q: [r.rec, r.addr, r.desc, r.dist, r.unit, r.svc, r.detail].join(' ').toLowerCase() };
@@ -2936,15 +2973,25 @@ function dKpiHtml(){
       `<span class="kn" data-k="${k.key}" data-to="${cnt[k.key] || 0}">${DASH.last[k.key] || 0}</span><label>${k.label}</label></button>`);
   }
   const ti = DASH.trend ? DASH.trend.items : [];
-  if(ti.length >= 2){
-    const c = ti.map((_, i) => tl.filter(x => x.b === i).length), a = c[c.length - 1], p = c[c.length - 2];
-    const mood = a > p ? 'up' : a < p ? 'down' : 'flat', arrow = a > p ? '▲' : a < p ? '▼' : '＝';
-    const u = DASH.trend.unit === 'hour' ? '小時' : '天';
-    cards.push(`<div class="kpi kpi-trend ${mood}"><span class="kn2">${arrow} ${a}<small>件</small></span><label>最新一${u}（${e(ti[ti.length - 1].label)}${u === '小時' ? '時' : ''}）・前一${u} ${p}</label></div>`);
-  }
+  if(ti.length >= 2) cards.push(dTrendCard(ti, tl));
   const top = tally(rowsFor('dk'), x => x.dk, x => x.dl).sort((x, y) => y.n - x.n)[0];
   if(top) cards.push(`<div class="kpi kpi-hot"><span class="kn2 hotn">${e(top.label)}</span><label>最集中行政區・${top.n} 件</label></div>`);
   return cards.join('');
+}
+
+// 趨勢卡:最後一個時段通常還沒走完(例如資料到 16:41,16–18 時才過 41 分),拿它跟前一個完整時段比會誤判成「下降」。
+// 所以未滿時,箭頭比較「最近完整時段」與其前一時段,並另列「進行中」的件數。
+function dTrendCard(ti, tl){
+  const c = ti.map((_, i) => tl.filter(x => x.b === i).length), last = ti.length - 1, ms = DASH.trend.step * 3600000;
+  const lm = String(DASH.S.latest || '').match(/^(\d+)\/(\d+)\s+(\d+):(\d+)/);
+  const partial = lm ? Date.UTC(2000, +lm[1] - 1, +lm[2], +lm[3], +lm[4]) < ti[last].t + ms - 60000 : false;
+  const hi = partial ? last - 1 : last;
+  const sub = partial && hi >= 0 ? `<label class="kpi-sub">進行中：${e(ti[last].name)} 已 ${c[last]} 件（至 ${e(DASH.S.latest)}）</label>` : '';
+  if(hi < 1){   // 只有一個(進行中)時段,沒有可比較的完整時段
+    return `<div class="kpi kpi-trend flat"><span class="kn2">… ${c[last]}<small>件</small></span><label>進行中時段（${e(ti[last].name)}）・資料至 ${e(DASH.S.latest)}</label></div>`;
+  }
+  const a = c[hi], p = c[hi - 1], mood = a > p ? 'up' : a < p ? 'down' : 'flat', arrow = a > p ? '▲' : a < p ? '▼' : '＝';
+  return `<div class="kpi kpi-trend ${mood}"><span class="kn2">${arrow} ${a}<small>件</small></span><label>${partial ? '最近完整時段' : '最新時段'}（${e(ti[hi].name)}）・前一時段 ${p}</label>${sub}</div>`;
 }
 
 function dTimeHtml(){
@@ -2954,24 +3001,36 @@ function dTimeHtml(){
   const per = ti.map(() => ({ n: 0, by: {} }));
   xs.forEach(x => { if(x.b >= 0){ const o = per[x.b]; o.n++; o.by[x.k] = (o.by[x.k] || 0) + 1; } });
   const max = Math.max(...per.map(o => o.n), 1), step = dStep(n), u = DASH.trend.unit === 'hour' ? '時' : '';
+  // 日期:每一天一個顏色(同一天同色,相鄰天不同色),在長條下方畫日期色帶,日界線以虛線標示
+  const dayOf = it => it.label.split(' ')[0], days = [];
+  ti.forEach((it, i) => { const d = dayOf(it); if(!days.length || days[days.length - 1].d !== d) days.push({ d, i, n: 0 }); days[days.length - 1].n++; });
+  const dayIdx = new Map(days.map((g, k) => [g.d, k]));
   const cols = per.map((o, i) => {
-    const off = F.t && (i < F.t[0] || i > F.t[1]);
-    return `<div class="tc${off ? ' off' : ''}${o.n === max && o.n ? ' peak' : ''}" data-i="${i}" title="${e(ti[i].label)}${u}：${o.n} 件">` +
+    const off = F.t && (i < F.t[0] || i > F.t[1]), k = dayIdx.get(dayOf(ti[i])) % 5;
+    return `<div class="tc${off ? ' off' : ''}${o.n === max && o.n ? ' peak' : ''}${i && dayOf(ti[i - 1]) !== dayOf(ti[i]) ? ' dstart' : ''}" data-i="${i}" style="--dc:var(--d${k})" title="${e(ti[i].name)}：${o.n} 件">` +
            `<div class="tcs" style="height:${o.n / max * 100}%">${dSegs(o.by)}</div></div>`;
   }).join('');
   const axis = ti.map((it, i) => `<span>${i % step === 0 ? e(it.label) + u : ''}</span>`).join('');
-  return `<div class="tl" style="--n:${n}">${cols}</div><div class="tax" style="--n:${n}">${axis}</div>`;
+  const strip = days.map((g, k) => `<div class="td" style="grid-column:span ${g.n};--dc:var(--d${k % 5})" title="${e(g.d)}">${g.n >= 2 || n <= 12 ? e(g.d) : e(g.d.split('/')[1]) + '日'}</div>`).join('');
+  return `<div class="tl" style="--n:${n}">${cols}</div><div class="tax" style="--n:${n}">${axis}</div><div class="tday" style="--n:${n}">${strip}</div>`;
 }
 function dTimeLabel(a, b){
-  const ti = DASH.trend.items, u = DASH.trend.unit === 'hour' ? '時' : '';
-  const lo = Math.min(a, b), hi = Math.max(a, b);
-  return lo === hi ? ti[lo].label + u : `${ti[lo].label}${u} – ${ti[hi].label}${u}`;
+  const ti = DASH.trend.items, lo = Math.min(a, b), hi = Math.max(a, b);
+  return lo === hi ? ti[lo].name : `${ti[lo].name} → ${ti[hi].name}`;
 }
 
-function dBars(list, f, max, fmt){
+// 橫向長條。show = 預設顯示幾條,其餘收在「展開更多」(被選取的項目一律顯示);不傳 show = 全部顯示。
+function dBars(list, f, max, fmt, show){
   if(!list.length) return '<div class="d-empty">無資料</div>';
-  return list.map(o => `<div class="hb${(fmt ? fmt(o) : o.label).length > 6 ? ' long' : ''}${dSel(f, o.key) ? ' sel' : ''}${dDim(f, o.key)}" data-f="${f}" data-v="${e(o.key)}" title="${e(o.label)}：${o.n} 件">` +
-    `<span class="hb-l">${e(fmt ? fmt(o) : o.label)}</span><span class="hb-t"><i style="width:${Math.max(3, o.n / max * 100)}%">${dSegs(o.by)}</i></span><span class="hb-n">${o.n}</span></div>`).join('');
+  const rows = list.map((o, i) => {
+    const lbl = fmt ? fmt(o) : o.label, ex = show !== undefined && i >= show && !dSel(f, o.key);
+    return `<div class="hb${lbl.length > 6 ? ' long' : ''}${ex ? ' ex' : ''}${dSel(f, o.key) ? ' sel' : ''}${dDim(f, o.key)}" data-f="${f}" data-v="${e(o.key)}" title="${e(o.label)}：${o.n} 件">` +
+      `<span class="hb-l">${e(lbl)}</span><span class="hb-t"><i style="width:${Math.max(3, o.n / max * 100)}%">${dSegs(o.by)}</i></span><span class="hb-n">${o.n}</span></div>`;
+  }).join('');
+  const hidden = list.filter((o, i) => show !== undefined && i >= show && !dSel(f, o.key)).length;
+  if(!hidden) return rows;
+  const open = DASH.more[f];
+  return `<div class="hbs${open ? ' open' : ''}">${rows}</div><button class="d-more2" data-act="more-${f}">${open ? '收合 ▲' : `展開更多（再 ${hidden} 條）▼`}</button>`;
 }
 function dUnitHtml(){
   const t = tally(rowsFor('unit'), x => x.unit, x => x.unit), by = new Map(t.map(o => [o.key, o]));
@@ -2980,14 +3039,15 @@ function dUnitHtml(){
 }
 function dDistHtml(){
   const t = tally(rowsFor('dk'), x => x.dk, x => x.dl).sort((a, b) => b.n - a.n || a.label.localeCompare(b.label, 'zh-Hant'));
-  const keep = new Set(t.slice(0, 10).map(o => o.key)); DASH.F.dk.forEach(k => keep.add(k));
+  const keep = new Set(t.slice(0, DIST_MAX).map(o => o.key)); DASH.F.dk.forEach(k => keep.add(k));
   const list = t.filter(o => keep.has(o.key));
-  return dBars(list, 'dk', Math.max(...list.map(o => o.n), 1)) + (t.length > list.length ? `<div class="d-note">另有 ${t.length - list.length} 個行政區未列出</div>` : '');
+  return dBars(list, 'dk', Math.max(...list.map(o => o.n), 1), null, DIST_SHOW) + (t.length > list.length ? `<div class="d-note">另有 ${t.length - list.length} 個行政區未列出</div>` : '');
 }
 function dRoadHtml(){
-  const t = tally(rowsFor('rk'), x => x.rk, x => x.rl).filter(o => o.n >= 2 || DASH.F.rk.has(o.key)).sort((a, b) => b.n - a.n || a.label.localeCompare(b.label, 'zh-Hant'));
-  const list = t.slice(0, 8);
-  return list.length ? dBars(list, 'rk', list[0].n) : '<div class="d-empty">目前沒有出現 2 件以上的同一路段</div>';
+  const t = tally(rowsFor('rk'), x => x.rk, x => x.rl).filter(o => o.n >= (DASH.road1 ? 1 : 2) || DASH.F.rk.has(o.key)).sort((a, b) => b.n - a.n || a.label.localeCompare(b.label, 'zh-Hant'));
+  const keep = new Set(t.slice(0, ROAD_MAX).map(o => o.key)); DASH.F.rk.forEach(k => keep.add(k));
+  const list = t.filter(o => keep.has(o.key));
+  return list.length ? dBars(list, 'rk', list[0].n, null, ROAD_SHOW) : '<div class="d-empty">目前沒有出現 2 件以上的同一路段（可按「含單件」查看全部路段）</div>';
 }
 
 // 行政區 × 時間 熱力圖:排除行政區與時間篩選,才看得到「災情怎麼擴散」
@@ -3004,7 +3064,7 @@ function dHeatHtml(){
     for(let i = 0; i < n; i++){
       const v = cell.get(o.key + '#' + i) || 0;
       const on = (!F.dk.size || F.dk.has(o.key)) && (!F.t || (i >= F.t[0] && i <= F.t[1]));
-      h += `<i class="hm-c${v ? '' : ' z'}${on ? '' : ' off'}" data-heat="${e(o.key)}|${i}" style="--a:${v ? (0.18 + 0.82 * v / max).toFixed(2) : 0}" title="${e(o.label)} ${e(ti[i].label)}：${v} 件">${showN && v ? v : ''}</i>`;
+      h += `<i class="hm-c${v ? '' : ' z'}${on ? '' : ' off'}" data-heat="${e(o.key)}|${i}" style="--a:${v ? (0.18 + 0.82 * v / max).toFixed(2) : 0}" title="${e(o.label)} ${e(ti[i].name)}：${v} 件">${showN && v ? v : ''}</i>`;
     }
   }
   return h + '</div>';
@@ -3041,6 +3101,16 @@ function dashRender(){
   R.querySelector('#dSub').textContent = `資料 ${S.total} 件${S.latest ? '・最新 ' + S.latest : ''}・${disasterMode ? '災害模式' : '平常模式'}`;
   R.querySelector('#dSel').textContent = F.t ? dTimeLabel(F.t[0], F.t[1]) : '全部時段';
   R.querySelector('#dPlay').textContent = DASH.playing ? '⏸ 暫停' : '▶ 播放';
+  const tr = DASH.trend, stepName = x => x === 24 ? '天' : x + '小時';
+  R.querySelectorAll('[data-step]').forEach(b => {
+    const on = String(DASH.step) === b.dataset.step; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
+    if(b.dataset.step === 'auto') b.textContent = tr ? `自動（${stepName(tr.step)}）` : '自動';
+  });
+  R.querySelector('#dRoad1').classList.toggle('on', DASH.road1); R.querySelector('#dRoad1').setAttribute('aria-pressed', DASH.road1);
+  R.querySelector('#dRoadHint').textContent = DASH.road1 ? '含單件（全部路段）' : '同路段 2 件以上';
+  const ex = R.querySelector('#dExport'); ex.disabled = !rowsFor().length;
+  R.querySelector('#dTimeCard').classList.toggle('folded', DASH.fold);
+  R.querySelector('#dFold').textContent = DASH.fold ? '展開 ▼' : '收合 ▲';
   R.classList.toggle('first', DASH.first); DASH.first = false;
   dashCountUp();
 }
@@ -3085,7 +3155,7 @@ function dashTapOk(ev){
 function dashClick(ev){
   const ok = dashTapOk(ev); DASH.tap = null;
   if(!ok) return;
-  const t = ev.target.closest('[data-f],[data-heat],[data-x],[data-act]'); if(!t) return;
+  const t = ev.target.closest('[data-f],[data-heat],[data-x],[data-act],[data-step]'); if(!t) return;
   if(t.dataset.f){ DASH.listN = 30; dashToggle(t.dataset.f, t.dataset.v); return; }
   if(t.dataset.heat){
     const [dk, b] = [t.dataset.heat.split('|').slice(0, -1).join('|'), +t.dataset.heat.split('|').pop()];
@@ -3096,8 +3166,13 @@ function dashClick(ev){
     if(x === 't') DASH.F.t = null; else if(x === 'q'){ DASH.F.q = ''; DASH.root.querySelector('#dQ').value = ''; } else DASH.F[x].delete(t.dataset.v);
     dashRender(); return;
   }
+  if(t.dataset.step){ dashSetStep(t.dataset.step); return; }
   const a = t.dataset.act;
-  if(a === 'clear') dashClear();
+  if(a === 'fold'){ dashStop(); DASH.fold = !DASH.fold; dashSave('wurt.dashFold', DASH.fold ? '1' : '0'); dashRender(); }
+  else if(a === 'more-dk' || a === 'more-rk'){ const f = a.slice(5); DASH.more[f] = !DASH.more[f]; dashRender(); }
+  else if(a === 'road1'){ DASH.road1 = !DASH.road1; DASH.more.rk = false; dashRender(); }
+  else if(a === 'export') dashExport();
+  else if(a === 'clear') dashClear();
   else if(a === 'more'){ DASH.listN += 30; DASH.root.querySelector('#dList').innerHTML = dListHtml(); }
   else if(a === 'play') dashPlay();
   else if(a === 'theme') dashTheme();
@@ -3134,6 +3209,28 @@ function dashPointer(ev){
   paint();
 }
 
+function dashSave(k, v){ try { localStorage.setItem(k, v); } catch(_) {} }
+// 切換時段粗細:時段索引會改變,所以時間篩選一併清除(其他篩選保留)
+function dashSetStep(v){
+  dashStop(); DASH.step = v === 'auto' ? 'auto' : +v; dashSave('wurt.dashStep', String(DASH.step));
+  DASH.F.t = null; dashBuild(getShiftFilteredRows(filteredRows)); dashRender();
+}
+
+// 匯出「目前篩選結果」為 Excel(各廠所分頁,欄位與主畫面 Excel 相同;「處理情形/完成時間」「統計摘要」沿用匯出選單的勾選)。
+// 直接下載(不用主畫面的確認卡),因為看板可能在另開的視窗裡。
+function dashExport(){
+  const xs = rowsFor(); if(!xs.length) return;
+  try {
+    const opts = { reply: document.getElementById('chkXlReply').checked, summary: document.getElementById('chkXlSummary').checked };
+    const arr = XLSX.write(buildExcelWorkbook(xs.map(x => x.r), opts), { type: 'array', bookType: 'xlsx' });
+    const now = new Date(), name = `看板篩選_案件明細_${now.getMonth() + 1}${now.getDate()}_${xs.length}筆.xlsx`;
+    const doc = DASH.root.ownerDocument, url = URL.createObjectURL(new Blob([arr], { type: 'application/octet-stream' }));
+    const a = doc.createElement('a'); a.href = url; a.download = name; a.rel = 'noopener';
+    doc.body.appendChild(a); a.click(); doc.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch(err){ alert('Excel 匯出失敗：' + err.message); console.error(err); }
+}
+
 function dashTheme(){
   DASH.theme = DASH.theme === 'dark' ? 'light' : 'dark';
   DASH.root.classList.toggle('light', DASH.theme === 'light');
@@ -3153,12 +3250,14 @@ const DASH_SKELETON = `
 <div class="d-chips" id="dChips"></div>
 <main class="d-body">
   <section id="dKpi" class="kpis"></section>
-  <section class="card wide"><h3>案件湧入趨勢<small>拖曳選取時段，或點單一時段</small><span class="sp"></span><span class="d-sel" id="dSel"></span><button data-act="play" id="dPlay" class="d-btn">▶ 播放</button></h3><div id="dTime"></div></section>
+  <section class="card wide" id="dTimeCard"><h3>案件湧入趨勢<small>拖曳選取時段，或點單一時段</small><span class="sp"></span><span class="d-sel" id="dSel"></span>
+    <span class="d-segw"><span class="seg" role="group" aria-label="時段粗細"><button data-step="auto">自動</button><button data-step="1">1小時</button><button data-step="2">2小時</button><button data-step="4">4小時</button><button data-step="24">整天</button></span></span>
+    <button data-act="play" id="dPlay" class="d-btn">▶ 播放</button><button data-act="fold" id="dFold" class="d-fold">收合 ▲</button></h3><div id="dTime"></div></section>
   <section class="card"><h3>廠所</h3><div id="dUnit"></div></section>
   <section class="card"><h3>行政區</h3><div id="dDist"></div></section>
-  <section class="card"><h3>熱點路段<small>同路段 2 件以上</small></h3><div id="dRoad"></div></section>
+  <section class="card"><h3>熱點路段<small id="dRoadHint">同路段 2 件以上</small><span class="sp"></span><button class="d-tog" id="dRoad1" data-act="road1" aria-pressed="false">含單件</button></h3><div id="dRoad"></div></section>
   <section class="card wide"><h3>行政區 × 時間<small>顏色越深案件越多；點格子可聚焦</small></h3><div id="dHeat"></div></section>
-  <section class="card wide"><h3>案件清單<span class="sp"></span><input id="dQ" type="search" placeholder="搜尋地址、描述、受理編號…" autocomplete="off"></h3><div id="dList"></div></section>
+  <section class="card wide"><h3>案件清單<span class="sp"></span><button class="d-btn d-exp" id="dExport" data-act="export" title="把目前篩選出來的案件匯成 Excel（各廠所一個分頁）">⬇ 匯出 Excel</button><input id="dQ" type="search" placeholder="搜尋地址、描述、受理編號…" autocomplete="off"></h3><div id="dList"></div></section>
 </main>`;
 
 function openDashboard(){
@@ -3167,6 +3266,8 @@ function openDashboard(){
   const rows = getShiftFilteredRows(filteredRows);
   if(!rows.length){ alert('目前沒有資料，請先上傳並整理後再開啟災情看板。'); return; }
   try { DASH.theme = localStorage.getItem('wurt.dashTheme') === 'light' ? 'light' : 'dark'; } catch(_) {}
+  try { const st = localStorage.getItem('wurt.dashStep'); DASH.step = ['1', '2', '4', '24'].includes(st) ? +st : 'auto'; DASH.fold = localStorage.getItem('wurt.dashFold') === '1'; } catch(_) {}
+  DASH.more = { dk: false, rk: false }; DASH.road1 = false;   // 行政區/路段的「展開更多」與「含單件」每次開啟都回預設
   DASH.F = dashFresh(); DASH.last = {}; DASH.listN = 30; DASH.first = true;
   const R = DASH.root = document.createElement('div');
   R.className = 'dash' + (DASH.theme === 'light' ? ' light' : ''); R.tabIndex = -1; R.innerHTML = DASH_SKELETON;
