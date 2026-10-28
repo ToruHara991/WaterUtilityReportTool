@@ -57,6 +57,8 @@ function tally(xs, keyOf, labelOf){
   return [...m.values()];
 }
 const dSegs = by => DASH_KINDS.filter(k => by[k.key]).map(k => `<b style="flex:${by[k.key]};background:var(--c-${k.key})"></b>`).join('');
+// 各類別件數的文字(滑鼠停留提示用):「修漏 3・供水 2」
+const dByText = by => DASH_KINDS.filter(k => by[k.key]).map(k => `${k.label} ${by[k.key]}`).join('・');
 // 座標軸標籤密度:窄螢幕少標幾個,避免互相重疊
 const dStep = n => Math.ceil(n / (dashWin().innerWidth < 700 ? 4 : 8));
 const dSel = (f, v) => DASH.F[f].has(v);
@@ -82,9 +84,8 @@ function dKpiHtml(){
 // 趨勢卡:最後一個時段通常還沒走完(例如資料到 16:41,16–18 時才過 41 分),拿它跟前一個完整時段比會誤判成「下降」。
 // 所以未滿時,箭頭比較「最近完整時段」與其前一時段,並另列「進行中」的件數。
 function dTrendCard(ti, tl){
-  const c = ti.map((_, i) => tl.filter(x => x.b === i).length), last = ti.length - 1, ms = DASH.trend.step * 3600000;
-  const lm = String(DASH.S.latest || '').match(/^(\d+)\/(\d+)\s+(\d+):(\d+)/);
-  const partial = lm ? Date.UTC(2000, +lm[1] - 1, +lm[2], +lm[3], +lm[4]) < ti[last].t + ms - 60000 : false;
+  const c = ti.map((_, i) => tl.filter(x => x.b === i).length), last = ti.length - 1;
+  const partial = trendPartial(DASH.trend, DASH.S.latest);   // 與 PDF/摘要共用同一個判斷(summary.js)
   const hi = partial ? last - 1 : last;
   const sub = partial && hi >= 0 ? `<label class="kpi-sub">進行中：${e(ti[last].name)} 已 ${c[last]} 件（至 ${e(DASH.S.latest)}）</label>` : '';
   if(hi < 1){   // 只有一個(進行中)時段,沒有可比較的完整時段
@@ -105,6 +106,12 @@ function dTicks(ti){
   return out;
 }
 
+// 類別圖例(長條顏色的說明);點一下 = 依該類別篩選,與上方數字卡相同
+function dLegendHtml(){
+  const kinds = DASH_KINDS.filter(k => k.key !== 'other' || DASH.S.hasOther);
+  return `<div class="d-legend">${kinds.map(k => `<button class="lg${dSel('svc', k.key) ? ' sel' : ''}${dDim('svc', k.key)}" data-f="svc" data-v="${k.key}"><i style="background:var(--c-${k.key})"></i>${k.label}</button>`).join('')}</div>`;
+}
+
 function dTimeHtml(){
   const ti = DASH.trend ? DASH.trend.items : [];
   if(!ti.length) return '<div class="d-empty">資料沒有可判讀的申報時間</div>';
@@ -118,14 +125,14 @@ function dTimeHtml(){
   const dayIdx = new Map(days.map((g, k) => [g.d, k]));
   const cols = per.map((o, i) => {
     const off = F.t && (i < F.t[0] || i > F.t[1]), k = dayIdx.get(dayOf(ti[i])) % 5;
-    return `<div class="tc${off ? ' off' : ''}${o.n === max && o.n ? ' peak' : ''}${i && dayOf(ti[i - 1]) !== dayOf(ti[i]) ? ' dstart' : ''}" data-i="${i}" style="--dc:var(--d${k})" title="${e(ti[i].name)}：${o.n} 件">` +
+    return `<div class="tc${off ? ' off' : ''}${o.n === max && o.n ? ' peak' : ''}${i && dayOf(ti[i - 1]) !== dayOf(ti[i]) ? ' dstart' : ''}" data-i="${i}" style="--dc:var(--d${k})" title="${e(ti[i].name)}：${o.n} 件${o.n ? `（${dByText(o.by)}）` : ''}">` +
            `<div class="tcs" style="height:${o.n / max * 100}%">${dSegs(o.by)}</div></div>`;
   }).join('');
   // 小時刻度:只寫「整點小時」(日期交給下方色帶),文字與刻度線沿用當天的顏色;整天模式不需要
   const ticks = dTicks(ti), axis = DASH.trend.unit === 'hour'
     ? ti.map((it, i) => `<span${ticks.has(i) ? ` class="tk" style="--dc:var(--d${dayIdx.get(dayOf(it)) % 5})"` : ''}>${ticks.has(i) ? +it.label.split(' ')[1] + '時' : ''}</span>`).join('') : '';
   const strip = days.map((g, k) => `<div class="td" style="grid-column:span ${g.n};--dc:var(--d${k % 5})" title="${e(g.d)}">${g.n >= 2 || n <= 12 ? e(g.d) : e(g.d.split('/')[1]) + '日'}</div>`).join('');
-  return `<div class="tl" style="--n:${n}">${cols}</div>${axis ? `<div class="tax" style="--n:${n}">${axis}</div>` : ''}<div class="tday" style="--n:${n}">${strip}</div>`;
+  return `<div class="tl" style="--n:${n}">${cols}</div>${axis ? `<div class="tax" style="--n:${n}">${axis}</div>` : ''}<div class="tday" style="--n:${n}">${strip}</div>${dLegendHtml()}`;
 }
 function dTimeLabel(a, b){
   const ti = DASH.trend.items, lo = Math.min(a, b), hi = Math.max(a, b);
@@ -137,7 +144,7 @@ function dBars(list, f, max, fmt, show){
   if(!list.length) return '<div class="d-empty">無資料</div>';
   const rows = list.map((o, i) => {
     const lbl = fmt ? fmt(o) : o.label, ex = show !== undefined && i >= show && !dSel(f, o.key);
-    return `<div class="hb${lbl.length > 6 ? ' long' : ''}${ex ? ' ex' : ''}${dSel(f, o.key) ? ' sel' : ''}${dDim(f, o.key)}" data-f="${f}" data-v="${e(o.key)}" title="${e(o.label)}：${o.n} 件">` +
+    return `<div class="hb${lbl.length > 6 ? ' long' : ''}${ex ? ' ex' : ''}${dSel(f, o.key) ? ' sel' : ''}${dDim(f, o.key)}" data-f="${f}" data-v="${e(o.key)}" title="${e(o.label)}：${o.n} 件（${dByText(o.by)}）">` +
       `<span class="hb-l">${e(lbl)}</span><span class="hb-t"><i style="width:${Math.max(3, o.n / max * 100)}%">${dSegs(o.by)}</i></span><span class="hb-n">${o.n}</span></div>`;
   }).join('');
   const hidden = list.filter((o, i) => show !== undefined && i >= show && !dSel(f, o.key)).length;

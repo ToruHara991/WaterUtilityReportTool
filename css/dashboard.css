@@ -181,3 +181,11 @@
 .tax .tk{color:color-mix(in srgb,var(--dc) 82%,var(--tx));font-weight:700;font-variant-numeric:tabular-nums}
 .tax .tk::before{content:'';position:absolute;left:50%;top:0;height:5px;border-left:2px solid var(--dc);transform:translateX(-1px)}
 .tday{margin-top:2px}
+
+/* 類別圖例 */
+.d-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px}
+.dash .d-legend .lg{display:inline-flex;align-items:center;gap:6px;padding:3px 6px;border-radius:6px;font-size:.78rem;font-weight:700;color:var(--tx)}
+.d-legend .lg i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.d-legend .lg.sel{box-shadow:var(--glow)}
+.d-legend .lg.dim{opacity:.4}
+@media(max-width:700px){.dash .d-legend .lg{padding:6px 8px}}

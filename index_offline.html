@@ -771,6 +771,13 @@ col.cJ{width:36px} col.cK{width:62px} col.cL{width:64px}
 .xl-opts input{accent-color:var(--acc);width:14px;height:14px;flex-shrink:0}
 @media(hover:none) and (pointer:coarse){.xl-opts{font-size:.72rem;gap:6px;padding-bottom:8px}.xl-opts input{width:18px;height:18px}}
 
+/* 統計摘要:一句話結論 + 複製 */
+.sm-lead{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:flex-start;background:#fef9e7;border-left:3px solid #f59e0b;border-radius:6px;padding:8px 10px;margin-bottom:8px}
+.sm-lead p{flex:1 1 220px;min-width:0;font-weight:700;line-height:1.6;color:var(--text);overflow-wrap:anywhere}
+.sm-copy{flex:0 0 auto;padding:4px 10px;border-radius:6px;border:1px solid #f59e0b;background:#fff;color:#92400e;font:inherit;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap}
+.sm-copy.copied{background:#dcfce7;border-color:#16a34a;color:#166534}
+@media(hover:none) and (pointer:coarse){.sm-copy{padding:7px 12px;font-size:.78rem}}
+
 </style>
 <style>/* css/dashboard.css */
 /* css/dashboard.css — 災情看板(js/dashboard.js)專用樣式,全部限定在 .dash 範圍內,不影響主畫面。
@@ -956,6 +963,14 @@ col.cJ{width:36px} col.cK{width:62px} col.cL{width:64px}
 .tax .tk{color:color-mix(in srgb,var(--dc) 82%,var(--tx));font-weight:700;font-variant-numeric:tabular-nums}
 .tax .tk::before{content:'';position:absolute;left:50%;top:0;height:5px;border-left:2px solid var(--dc);transform:translateX(-1px)}
 .tday{margin-top:2px}
+
+/* 類別圖例 */
+.d-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px}
+.dash .d-legend .lg{display:inline-flex;align-items:center;gap:6px;padding:3px 6px;border-radius:6px;font-size:.78rem;font-weight:700;color:var(--tx)}
+.d-legend .lg i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.d-legend .lg.sel{box-shadow:var(--glow)}
+.d-legend .lg.dim{opacity:.4}
+@media(max-width:700px){.dash .d-legend .lg{padding:6px 8px}}
 
 </style>
 </head>
@@ -1961,6 +1976,58 @@ function buildTrend(hourMap, hourV, step){
   return { unit: step === 24 ? 'day' : 'hour', step, items };
 }
 
+// ── 文字結論(網頁摘要、PDF 首頁、複製文字共用) ──
+// 最後一個時段是否還沒走完(例如資料到 16:41,16 時這一格才過 41 分):未滿的時段不拿來和前一時段比,以免誤判成「減少」。
+function trendPartial(trend, latest){
+  const it = trend && trend.items, m = String(latest || '').match(/^(\d+)\/(\d+)\s+(\d+):(\d+)/);
+  if(!it || !it.length || !m) return false;
+  return Date.UTC(2000, +m[1] - 1, +m[2], +m[3], +m[4]) < it[it.length - 1].t + trend.step * 3600000 - 60000;
+}
+
+// 趨勢文字:「最近完整一小時(5/30 09時)4 件,前一小時 2 件,增加;進行中(5/30 10時,至 5/30 10:30)已 1 件」;資料不足回傳 ''
+function trendNote(S){
+  const tr = S.trend, it = tr && tr.items;
+  if(!it || it.length < 2) return '';
+  const u = tr.unit === 'hour' ? (tr.step === 1 ? '小時' : tr.step + ' 小時') : '天';
+  const partial = trendPartial(tr, S.latest), last = it.length - 1, hi = partial ? last - 1 : last;
+  const run = partial ? `進行中（${it[last].name}，至 ${S.latest}）已 ${it[last].n} 件` : '';
+  if(hi < 1) return run;
+  const a = it[hi].n, p = it[hi - 1].n, mood = a > p ? '增加' : a < p ? '減少' : '持平';
+  return `${partial ? '最近完整' : '最新'}一${u}（${it[hi].name}）${a} 件，前一${u} ${p} 件，${mood}` + (run ? '；' + run : '');
+}
+
+// 一句話結論(自動產生)
+function leadSentence(S){
+  if(!S.total) return '目前沒有案件資料。';
+  const kinds = [...SVC_STYLES.map(s => ({ label: s.label, n: S.svcTotals[s.key] })), { label: '其他', n: S.svcTotals.other }];
+  const top = kinds.reduce((a, b) => b.n > a.n ? b : a);
+  const parts = [`${S.latest ? '截至 ' + S.latest + ' ' : ''}共 ${S.total} 件，以${top.label}為主（${Math.round(top.n * 100 / S.total)}%）`];
+  if(S.dists.length) parts.push(`最集中在${S.dists[0].label}（${S.dists[0].n} 件）`);
+  if(S.roads.length) parts.push(`熱點路段為${S.roads[0].label}（${S.roads[0].n} 件）`);
+  const tn = trendNote(S);
+  return parts.join('；') + '。' + (tn ? tn + '。' : '');
+}
+
+// 複製用的純文字摘要(貼到 LINE 等):結論句 + 各廠所 + 行政區前 5 + 熱點路段前 5
+function summaryText(S){
+  const lines = ['【案件統計摘要】', leadSentence(S)];
+  if(S.total){
+    lines.push('各廠所：' + S.unitRows.map(r => `${r.unit} ${r.total}`).join('、'));
+    lines.push('行政區前 5：' + S.dists.slice(0, 5).map(d => `${d.label} ${d.n}`).join('、'));
+    if(S.roads.length) lines.push('熱點路段：' + S.roads.slice(0, 5).map(r => `${r.label} ${r.n}`).join('、'));
+  }
+  return lines.join('\n');
+}
+
+// 「複製摘要」按鈕:剪貼簿 API 不可用時(部分內網/舊瀏覽器)改用隱藏 textarea 複製
+function copySummary(btn){
+  const text = summaryText(computeSummary(getShiftFilteredRows(filteredRows)));
+  const done = () => { const t = btn.textContent; btn.textContent = '✅ 已複製'; btn.classList.add('copied'); setTimeout(() => { btn.textContent = t; btn.classList.remove('copied'); }, 2000); };
+  const legacy = () => { const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch(_) {} document.body.removeChild(ta); done(); };
+  try { navigator.clipboard.writeText(text).then(done).catch(legacy); } catch(_) { legacy(); }
+}
+
 // ── 畫面 ──
 const SUMMARY_TOP = 8;   // 行政區/路段排行各顯示前幾名
 
@@ -1990,7 +2057,8 @@ function summaryHtml(S){
   const more = (arr, what) => arr.length > SUMMARY_TOP ? `<div class="sm-note">另有 ${arr.length - SUMMARY_TOP} 個${what}未列出</div>` : '';
   const roadNote = S.roadUnknown ? `<div class="sm-note">另有 ${S.roadUnknown} 件地址無法判讀路段,未計入路段排行</div>` : '';
 
-  return `<div class="sm-over">共 <b>${S.total}</b> 件・${S.unitRows.length} 個廠所・${S.dists.length} 個行政區` +
+  return `<div class="sm-lead"><p>${e(leadSentence(S))}</p><button type="button" class="sm-copy" onclick="copySummary(this)">📋 複製摘要</button></div>` +
+    `<div class="sm-over">共 <b>${S.total}</b> 件・${S.unitRows.length} 個廠所・${S.dists.length} 個行政區` +
          (S.peak ? `・高峰 ${e(S.peak.label)}(${S.peak.n} 件)` : '') + `</div>` +
     `<div class="sm-sec"><div class="sm-h">各廠所 × 案件類別</div><div class="sm-scroll"><table class="sm-tbl">${head}${body}${foot}</table></div></div>` +
     `<div class="sm-sec"><div class="sm-h">行政區排行</div>${smList(dists, S.total)}${more(S.dists, '行政區')}</div>` +
@@ -2027,27 +2095,7 @@ document.getElementById('summaryBox').addEventListener('toggle', () => {
   box.addEventListener('change', ev => { try { localStorage.setItem('wurt.pdfSummary', ev.target.checked ? '1' : '0'); } catch(_) {} });
 })();
 
-// 趨勢文字:「最新一小時(5/30 14時)9 件,前一小時 6 件,增加」;資料不足回傳 ''
-function trendNote(S){
-  const it = S.trend && S.trend.items;
-  if(!it || it.length < 2) return '';
-  const a = it[it.length - 1], b = it[it.length - 2];
-  const u = S.trend.unit === 'hour' ? '小時' : '天';
-  const mood = a.n > b.n ? '增加' : a.n < b.n ? '減少' : '持平';
-  return `最新一${u}（${a.label}${S.trend.unit === 'hour' ? '時' : ''}）${a.n} 件，前一${u} ${b.n} 件，${mood}`;
-}
-
-// 一句話結論(自動產生)
-function leadSentence(S){
-  if(!S.total) return '目前沒有案件資料。';
-  const kinds = [...SVC_STYLES.map(s => ({ label: s.label, n: S.svcTotals[s.key] })), { label: '其他', n: S.svcTotals.other }];
-  const top = kinds.reduce((a, b) => b.n > a.n ? b : a);
-  const parts = [`${S.latest ? '截至 ' + S.latest + ' ' : ''}共 ${S.total} 件，以${top.label}為主（${Math.round(top.n * 100 / S.total)}%）`];
-  if(S.dists.length) parts.push(`最集中在${S.dists[0].label}（${S.dists[0].n} 件）`);
-  if(S.roads.length) parts.push(`熱點路段為${S.roads[0].label}（${S.roads[0].n} 件）`);
-  const tn = trendNote(S);
-  return parts.join('；') + '。' + (tn ? tn + '。' : '');
-}
+// 一句話結論 leadSentence() 與趨勢文字 trendNote() 在 summary.js(網頁摘要、PDF、複製文字共用)
 
 // 災害模式各廠所頁首小計:「32 件｜修漏 20・供水 8・水質 4｜最多:汐止區　大同路二段 7 件」
 function unitSubtotalLine(rows){
@@ -2964,6 +3012,8 @@ function tally(xs, keyOf, labelOf){
   return [...m.values()];
 }
 const dSegs = by => DASH_KINDS.filter(k => by[k.key]).map(k => `<b style="flex:${by[k.key]};background:var(--c-${k.key})"></b>`).join('');
+// 各類別件數的文字(滑鼠停留提示用):「修漏 3・供水 2」
+const dByText = by => DASH_KINDS.filter(k => by[k.key]).map(k => `${k.label} ${by[k.key]}`).join('・');
 // 座標軸標籤密度:窄螢幕少標幾個,避免互相重疊
 const dStep = n => Math.ceil(n / (dashWin().innerWidth < 700 ? 4 : 8));
 const dSel = (f, v) => DASH.F[f].has(v);
@@ -2989,9 +3039,8 @@ function dKpiHtml(){
 // 趨勢卡:最後一個時段通常還沒走完(例如資料到 16:41,16–18 時才過 41 分),拿它跟前一個完整時段比會誤判成「下降」。
 // 所以未滿時,箭頭比較「最近完整時段」與其前一時段,並另列「進行中」的件數。
 function dTrendCard(ti, tl){
-  const c = ti.map((_, i) => tl.filter(x => x.b === i).length), last = ti.length - 1, ms = DASH.trend.step * 3600000;
-  const lm = String(DASH.S.latest || '').match(/^(\d+)\/(\d+)\s+(\d+):(\d+)/);
-  const partial = lm ? Date.UTC(2000, +lm[1] - 1, +lm[2], +lm[3], +lm[4]) < ti[last].t + ms - 60000 : false;
+  const c = ti.map((_, i) => tl.filter(x => x.b === i).length), last = ti.length - 1;
+  const partial = trendPartial(DASH.trend, DASH.S.latest);   // 與 PDF/摘要共用同一個判斷(summary.js)
   const hi = partial ? last - 1 : last;
   const sub = partial && hi >= 0 ? `<label class="kpi-sub">進行中：${e(ti[last].name)} 已 ${c[last]} 件（至 ${e(DASH.S.latest)}）</label>` : '';
   if(hi < 1){   // 只有一個(進行中)時段,沒有可比較的完整時段
@@ -3012,6 +3061,12 @@ function dTicks(ti){
   return out;
 }
 
+// 類別圖例(長條顏色的說明);點一下 = 依該類別篩選,與上方數字卡相同
+function dLegendHtml(){
+  const kinds = DASH_KINDS.filter(k => k.key !== 'other' || DASH.S.hasOther);
+  return `<div class="d-legend">${kinds.map(k => `<button class="lg${dSel('svc', k.key) ? ' sel' : ''}${dDim('svc', k.key)}" data-f="svc" data-v="${k.key}"><i style="background:var(--c-${k.key})"></i>${k.label}</button>`).join('')}</div>`;
+}
+
 function dTimeHtml(){
   const ti = DASH.trend ? DASH.trend.items : [];
   if(!ti.length) return '<div class="d-empty">資料沒有可判讀的申報時間</div>';
@@ -3025,14 +3080,14 @@ function dTimeHtml(){
   const dayIdx = new Map(days.map((g, k) => [g.d, k]));
   const cols = per.map((o, i) => {
     const off = F.t && (i < F.t[0] || i > F.t[1]), k = dayIdx.get(dayOf(ti[i])) % 5;
-    return `<div class="tc${off ? ' off' : ''}${o.n === max && o.n ? ' peak' : ''}${i && dayOf(ti[i - 1]) !== dayOf(ti[i]) ? ' dstart' : ''}" data-i="${i}" style="--dc:var(--d${k})" title="${e(ti[i].name)}：${o.n} 件">` +
+    return `<div class="tc${off ? ' off' : ''}${o.n === max && o.n ? ' peak' : ''}${i && dayOf(ti[i - 1]) !== dayOf(ti[i]) ? ' dstart' : ''}" data-i="${i}" style="--dc:var(--d${k})" title="${e(ti[i].name)}：${o.n} 件${o.n ? `（${dByText(o.by)}）` : ''}">` +
            `<div class="tcs" style="height:${o.n / max * 100}%">${dSegs(o.by)}</div></div>`;
   }).join('');
   // 小時刻度:只寫「整點小時」(日期交給下方色帶),文字與刻度線沿用當天的顏色;整天模式不需要
   const ticks = dTicks(ti), axis = DASH.trend.unit === 'hour'
     ? ti.map((it, i) => `<span${ticks.has(i) ? ` class="tk" style="--dc:var(--d${dayIdx.get(dayOf(it)) % 5})"` : ''}>${ticks.has(i) ? +it.label.split(' ')[1] + '時' : ''}</span>`).join('') : '';
   const strip = days.map((g, k) => `<div class="td" style="grid-column:span ${g.n};--dc:var(--d${k % 5})" title="${e(g.d)}">${g.n >= 2 || n <= 12 ? e(g.d) : e(g.d.split('/')[1]) + '日'}</div>`).join('');
-  return `<div class="tl" style="--n:${n}">${cols}</div>${axis ? `<div class="tax" style="--n:${n}">${axis}</div>` : ''}<div class="tday" style="--n:${n}">${strip}</div>`;
+  return `<div class="tl" style="--n:${n}">${cols}</div>${axis ? `<div class="tax" style="--n:${n}">${axis}</div>` : ''}<div class="tday" style="--n:${n}">${strip}</div>${dLegendHtml()}`;
 }
 function dTimeLabel(a, b){
   const ti = DASH.trend.items, lo = Math.min(a, b), hi = Math.max(a, b);
@@ -3044,7 +3099,7 @@ function dBars(list, f, max, fmt, show){
   if(!list.length) return '<div class="d-empty">無資料</div>';
   const rows = list.map((o, i) => {
     const lbl = fmt ? fmt(o) : o.label, ex = show !== undefined && i >= show && !dSel(f, o.key);
-    return `<div class="hb${lbl.length > 6 ? ' long' : ''}${ex ? ' ex' : ''}${dSel(f, o.key) ? ' sel' : ''}${dDim(f, o.key)}" data-f="${f}" data-v="${e(o.key)}" title="${e(o.label)}：${o.n} 件">` +
+    return `<div class="hb${lbl.length > 6 ? ' long' : ''}${ex ? ' ex' : ''}${dSel(f, o.key) ? ' sel' : ''}${dDim(f, o.key)}" data-f="${f}" data-v="${e(o.key)}" title="${e(o.label)}：${o.n} 件（${dByText(o.by)}）">` +
       `<span class="hb-l">${e(lbl)}</span><span class="hb-t"><i style="width:${Math.max(3, o.n / max * 100)}%">${dSegs(o.by)}</i></span><span class="hb-n">${o.n}</span></div>`;
   }).join('');
   const hidden = list.filter((o, i) => show !== undefined && i >= show && !dSel(f, o.key)).length;

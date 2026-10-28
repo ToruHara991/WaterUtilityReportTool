@@ -296,3 +296,10 @@ col.cJ{width:36px} col.cK{width:62px} col.cL{width:64px}
 .xl-opts label{display:flex;align-items:center;gap:4px;cursor:pointer;line-height:1.5}
 .xl-opts input{accent-color:var(--acc);width:14px;height:14px;flex-shrink:0}
 @media(hover:none) and (pointer:coarse){.xl-opts{font-size:.72rem;gap:6px;padding-bottom:8px}.xl-opts input{width:18px;height:18px}}
+
+/* 統計摘要:一句話結論 + 複製 */
+.sm-lead{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:flex-start;background:#fef9e7;border-left:3px solid #f59e0b;border-radius:6px;padding:8px 10px;margin-bottom:8px}
+.sm-lead p{flex:1 1 220px;min-width:0;font-weight:700;line-height:1.6;color:var(--text);overflow-wrap:anywhere}
+.sm-copy{flex:0 0 auto;padding:4px 10px;border-radius:6px;border:1px solid #f59e0b;background:#fff;color:#92400e;font:inherit;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap}
+.sm-copy.copied{background:#dcfce7;border-color:#16a34a;color:#166534}
+@media(hover:none) and (pointer:coarse){.sm-copy{padding:7px 12px;font-size:.78rem}}

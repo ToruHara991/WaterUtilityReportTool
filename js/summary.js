@@ -91,6 +91,58 @@ function buildTrend(hourMap, hourV, step){
   return { unit: step === 24 ? 'day' : 'hour', step, items };
 }
 
+// ── 文字結論(網頁摘要、PDF 首頁、複製文字共用) ──
+// 最後一個時段是否還沒走完(例如資料到 16:41,16 時這一格才過 41 分):未滿的時段不拿來和前一時段比,以免誤判成「減少」。
+function trendPartial(trend, latest){
+  const it = trend && trend.items, m = String(latest || '').match(/^(\d+)\/(\d+)\s+(\d+):(\d+)/);
+  if(!it || !it.length || !m) return false;
+  return Date.UTC(2000, +m[1] - 1, +m[2], +m[3], +m[4]) < it[it.length - 1].t + trend.step * 3600000 - 60000;
+}
+
+// 趨勢文字:「最近完整一小時(5/30 09時)4 件,前一小時 2 件,增加;進行中(5/30 10時,至 5/30 10:30)已 1 件」;資料不足回傳 ''
+function trendNote(S){
+  const tr = S.trend, it = tr && tr.items;
+  if(!it || it.length < 2) return '';
+  const u = tr.unit === 'hour' ? (tr.step === 1 ? '小時' : tr.step + ' 小時') : '天';
+  const partial = trendPartial(tr, S.latest), last = it.length - 1, hi = partial ? last - 1 : last;
+  const run = partial ? `進行中（${it[last].name}，至 ${S.latest}）已 ${it[last].n} 件` : '';
+  if(hi < 1) return run;
+  const a = it[hi].n, p = it[hi - 1].n, mood = a > p ? '增加' : a < p ? '減少' : '持平';
+  return `${partial ? '最近完整' : '最新'}一${u}（${it[hi].name}）${a} 件，前一${u} ${p} 件，${mood}` + (run ? '；' + run : '');
+}
+
+// 一句話結論(自動產生)
+function leadSentence(S){
+  if(!S.total) return '目前沒有案件資料。';
+  const kinds = [...SVC_STYLES.map(s => ({ label: s.label, n: S.svcTotals[s.key] })), { label: '其他', n: S.svcTotals.other }];
+  const top = kinds.reduce((a, b) => b.n > a.n ? b : a);
+  const parts = [`${S.latest ? '截至 ' + S.latest + ' ' : ''}共 ${S.total} 件，以${top.label}為主（${Math.round(top.n * 100 / S.total)}%）`];
+  if(S.dists.length) parts.push(`最集中在${S.dists[0].label}（${S.dists[0].n} 件）`);
+  if(S.roads.length) parts.push(`熱點路段為${S.roads[0].label}（${S.roads[0].n} 件）`);
+  const tn = trendNote(S);
+  return parts.join('；') + '。' + (tn ? tn + '。' : '');
+}
+
+// 複製用的純文字摘要(貼到 LINE 等):結論句 + 各廠所 + 行政區前 5 + 熱點路段前 5
+function summaryText(S){
+  const lines = ['【案件統計摘要】', leadSentence(S)];
+  if(S.total){
+    lines.push('各廠所：' + S.unitRows.map(r => `${r.unit} ${r.total}`).join('、'));
+    lines.push('行政區前 5：' + S.dists.slice(0, 5).map(d => `${d.label} ${d.n}`).join('、'));
+    if(S.roads.length) lines.push('熱點路段：' + S.roads.slice(0, 5).map(r => `${r.label} ${r.n}`).join('、'));
+  }
+  return lines.join('\n');
+}
+
+// 「複製摘要」按鈕:剪貼簿 API 不可用時(部分內網/舊瀏覽器)改用隱藏 textarea 複製
+function copySummary(btn){
+  const text = summaryText(computeSummary(getShiftFilteredRows(filteredRows)));
+  const done = () => { const t = btn.textContent; btn.textContent = '✅ 已複製'; btn.classList.add('copied'); setTimeout(() => { btn.textContent = t; btn.classList.remove('copied'); }, 2000); };
+  const legacy = () => { const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch(_) {} document.body.removeChild(ta); done(); };
+  try { navigator.clipboard.writeText(text).then(done).catch(legacy); } catch(_) { legacy(); }
+}
+
 // ── 畫面 ──
 const SUMMARY_TOP = 8;   // 行政區/路段排行各顯示前幾名
 
@@ -120,7 +172,8 @@ function summaryHtml(S){
   const more = (arr, what) => arr.length > SUMMARY_TOP ? `<div class="sm-note">另有 ${arr.length - SUMMARY_TOP} 個${what}未列出</div>` : '';
   const roadNote = S.roadUnknown ? `<div class="sm-note">另有 ${S.roadUnknown} 件地址無法判讀路段,未計入路段排行</div>` : '';
 
-  return `<div class="sm-over">共 <b>${S.total}</b> 件・${S.unitRows.length} 個廠所・${S.dists.length} 個行政區` +
+  return `<div class="sm-lead"><p>${e(leadSentence(S))}</p><button type="button" class="sm-copy" onclick="copySummary(this)">📋 複製摘要</button></div>` +
+    `<div class="sm-over">共 <b>${S.total}</b> 件・${S.unitRows.length} 個廠所・${S.dists.length} 個行政區` +
          (S.peak ? `・高峰 ${e(S.peak.label)}(${S.peak.n} 件)` : '') + `</div>` +
     `<div class="sm-sec"><div class="sm-h">各廠所 × 案件類別</div><div class="sm-scroll"><table class="sm-tbl">${head}${body}${foot}</table></div></div>` +
     `<div class="sm-sec"><div class="sm-h">行政區排行</div>${smList(dists, S.total)}${more(S.dists, '行政區')}</div>` +

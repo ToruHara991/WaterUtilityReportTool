@@ -14,27 +14,7 @@
   box.addEventListener('change', ev => { try { localStorage.setItem('wurt.pdfSummary', ev.target.checked ? '1' : '0'); } catch(_) {} });
 })();
 
-// 趨勢文字:「最新一小時(5/30 14時)9 件,前一小時 6 件,增加」;資料不足回傳 ''
-function trendNote(S){
-  const it = S.trend && S.trend.items;
-  if(!it || it.length < 2) return '';
-  const a = it[it.length - 1], b = it[it.length - 2];
-  const u = S.trend.unit === 'hour' ? '小時' : '天';
-  const mood = a.n > b.n ? '增加' : a.n < b.n ? '減少' : '持平';
-  return `最新一${u}（${a.label}${S.trend.unit === 'hour' ? '時' : ''}）${a.n} 件，前一${u} ${b.n} 件，${mood}`;
-}
-
-// 一句話結論(自動產生)
-function leadSentence(S){
-  if(!S.total) return '目前沒有案件資料。';
-  const kinds = [...SVC_STYLES.map(s => ({ label: s.label, n: S.svcTotals[s.key] })), { label: '其他', n: S.svcTotals.other }];
-  const top = kinds.reduce((a, b) => b.n > a.n ? b : a);
-  const parts = [`${S.latest ? '截至 ' + S.latest + ' ' : ''}共 ${S.total} 件，以${top.label}為主（${Math.round(top.n * 100 / S.total)}%）`];
-  if(S.dists.length) parts.push(`最集中在${S.dists[0].label}（${S.dists[0].n} 件）`);
-  if(S.roads.length) parts.push(`熱點路段為${S.roads[0].label}（${S.roads[0].n} 件）`);
-  const tn = trendNote(S);
-  return parts.join('；') + '。' + (tn ? tn + '。' : '');
-}
+// 一句話結論 leadSentence() 與趨勢文字 trendNote() 在 summary.js(網頁摘要、PDF、複製文字共用)
 
 // 災害模式各廠所頁首小計:「32 件｜修漏 20・供水 8・水質 4｜最多:汐止區　大同路二段 7 件」
 function unitSubtotalLine(rows){
